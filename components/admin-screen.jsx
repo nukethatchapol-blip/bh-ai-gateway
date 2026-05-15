@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Avatar, Icon, RoleBadge, Segmented, Tabs, EmptyHint, Field } from "./ui";
 import { PageHeader } from "./shell";
 
-export function AdminScreen({ pending, users, skills, audit }) {
+export function AdminScreen({ currentUserId, pending, users, skills, audit }) {
   const [tab, setTab] = useState("approvals");
   return (
     <div className="pageframe">
@@ -27,7 +27,7 @@ export function AdminScreen({ pending, users, skills, audit }) {
       <div className="page-body scroll-y">
         <div style={{ padding: "20px 28px 40px", maxWidth: 1400, margin: "0 auto" }}>
           {tab === "approvals" && <ApprovalsTab pending={pending} />}
-          {tab === "users" && <UsersTab users={users} />}
+          {tab === "users" && <UsersTab users={users} currentUserId={currentUserId} />}
           {tab === "skills" && <SkillsTab skills={skills} />}
           {tab === "audit" && <AuditTab audit={audit} />}
           {tab === "quotas" && <QuotasTab users={users} />}
@@ -135,7 +135,50 @@ function PolicyRow({ label, value, mono }) {
   );
 }
 
-function UsersTab({ users }) {
+function RoleSelect({ user, currentUserId }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  // An admin can't change their own role (prevents self-lockout).
+  if (user.id === currentUserId) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <RoleBadge role={user.role} />
+        <span className="mono" style={{ font: "400 9.5px/1 var(--font-mono)", color: "var(--muted-2)" }}>you</span>
+      </span>
+    );
+  }
+
+  async function change(role) {
+    if (role === user.role) return;
+    setBusy(true);
+    const r = await fetch("/api/admin/role", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ profileId: user.id, role }),
+    });
+    setBusy(false);
+    if (r.ok) router.refresh();
+    else alert((await r.json().catch(() => ({}))).error || "Role update failed");
+  }
+
+  return (
+    <select
+      className="input"
+      value={user.role}
+      disabled={busy}
+      onChange={(e) => change(e.target.value)}
+      aria-label={`Role for ${user.full_name || user.email}`}
+      style={{ height: 28, width: 116, padding: "0 8px", font: "500 12px/1 var(--font-sans)", textTransform: "capitalize" }}
+    >
+      <option value="staff">Staff</option>
+      <option value="manager">Manager</option>
+      <option value="admin">Admin</option>
+    </select>
+  );
+}
+
+function UsersTab({ users, currentUserId }) {
   const [q, setQ] = useState("");
   const filtered = users.filter((u) =>
     !q || u.full_name?.toLowerCase().includes(q.toLowerCase()) ||
@@ -180,7 +223,7 @@ function UsersTab({ users }) {
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: "12px 16px" }}><RoleBadge role={u.role} /></td>
+                <td style={{ padding: "12px 16px" }}><RoleSelect user={u} currentUserId={currentUserId} /></td>
                 <td style={{ padding: "12px 16px" }}>
                   {u.branches === "ALL"
                     ? <span style={{ font: "500 12.5px/1 var(--font-sans)" }}>All branches</span>

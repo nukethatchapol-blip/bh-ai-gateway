@@ -28,6 +28,7 @@ export default async function AdminPage() {
 
   return (
     <AdminScreen
+      currentUserId={user.id}
       pending={pending || []}
       users={(users || []).map((u) => ({ ...u, branches: byUser[u.id] || [] }))}
       skills={skills || []}
