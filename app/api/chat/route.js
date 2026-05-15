@@ -70,7 +70,12 @@ export async function POST(request) {
   const scopeText = branchScope === "ALL"
     ? `Authorized branches: ${authorized.join(", ") || "(none)"}.`
     : `Authorized branch: ${branchScope}.`;
-  const system = `${skill.system_prompt}\n\nBRANCH SCOPE\n${scopeText}\nUSER: ${profile.full_name} (${profile.role})`;
+  const answerStyle =
+    "ANSWER STYLE\nDo your step-by-step reasoning in your thinking, not in the reply. " +
+    "The final reply must be a direct, concise answer for a business user — quote the " +
+    "numbers and insights. Do not paste raw SQL, scratch work, or schema guesses in the " +
+    "reply unless the user explicitly asks for SQL.";
+  const system = `${skill.system_prompt}\n\nBRANCH SCOPE\n${scopeText}\nUSER: ${profile.full_name} (${profile.role})\n\n${answerStyle}`;
 
   let cid = chatId;
   if (!cid) {
@@ -88,6 +93,7 @@ export async function POST(request) {
   const stream = new ReadableStream({
     async start(controller) {
       let full = "";
+      let thinking = "";
       const blocks = [];
       const toolsEnabled = (skill.tools || []).includes("supabase.query");
       try {
@@ -110,13 +116,14 @@ export async function POST(request) {
           },
           onEvent: (ev) => {
             if (ev.type === "text-delta") { full += ev.text; sse(controller, ev); }
+            else if (ev.type === "thinking-delta") { thinking += ev.text; sse(controller, ev); }
             else if (ev.type === "tool-call") sse(controller, ev);
             else if (ev.type === "tool-result") { if (ev.block) blocks.push(ev.block); sse(controller, ev); }
           },
         });
         await supabase.from("messages").insert({
           chat_id: cid, user_id: profile.id, role: "assistant",
-          content: { text: full, blocks }, model: m.id,
+          content: { text: full, blocks, thinking }, model: m.id,
         });
         await supabase.from("audit_log").insert({
           user_id: profile.id, action: "chat.message",

@@ -23,4 +23,12 @@ describe("parseAnthropicEvent", () => {
     const line = 'data: {"type":"message_stop"}';
     expect(parseAnthropicEvent(line)).toEqual({ type: "done" });
   });
+  it("extracts reasoning from a thinking_delta", () => {
+    const line = 'data: {"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"Let me check"}}';
+    expect(parseAnthropicEvent(line)).toEqual({ type: "thinking-delta", text: "Let me check" });
+  });
+  it("ignores signature_delta", () => {
+    const line = 'data: {"type":"content_block_delta","delta":{"type":"signature_delta","signature":"abc"}}';
+    expect(parseAnthropicEvent(line)).toBeNull();
+  });
 });

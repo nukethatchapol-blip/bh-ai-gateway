@@ -80,6 +80,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
       const decoder = new TextDecoder();
       let buf = "";
       let acc = "";
+      let thinkingAcc = "";
       const toolBlocks = [];
       while (true) {
         const { done, value } = await reader.read();
@@ -95,6 +96,10 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
             acc += ev.text;
             setMessages((m) => m.map((x) => x.id === assistantId
               ? { ...x, text: acc, blocks: [...toolBlocks, ...parseMarkdown(acc)] } : x));
+          } else if (ev.type === "thinking-delta") {
+            thinkingAcc += ev.text;
+            setMessages((m) => m.map((x) => x.id === assistantId
+              ? { ...x, thinking: thinkingAcc } : x));
           } else if (ev.type === "tool-call") {
             toolBlocks.push({ type: "tool", name: ev.name, detail: summarizeArgs(ev.args), elapsed: "" });
             setMessages((m) => m.map((x) => x.id === assistantId
@@ -492,6 +497,52 @@ function StreamingIndicator({ hasText }) {
   );
 }
 
+// Collapsible reasoning box. Expanded while the model is still thinking
+// (no answer yet); auto-collapses once the answer starts so only the
+// result shows. Click the header to re-open.
+function ThinkingBox({ thinking, streaming, hasAnswer }) {
+  const [manualOpen, setManualOpen] = useState(null);
+  if (!thinking) return null;
+  const autoOpen = streaming && !hasAnswer;
+  const open = manualOpen === null ? autoOpen : manualOpen;
+  const live = streaming && !hasAnswer;
+  return (
+    <div style={{
+      margin: "0 0 10px", border: "0.5px solid var(--line)",
+      borderRadius: 8, background: "var(--bg-2)", overflow: "hidden",
+    }}>
+      <button type="button" onClick={() => setManualOpen(!open)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", gap: 8,
+          padding: "7px 10px", background: "transparent", border: 0,
+          cursor: "pointer", color: "var(--muted)",
+        }}>
+        <Icon name="sparkles" size={12} style={{ color: "var(--accent)" }} />
+        <span style={{ font: "500 11.5px/1 var(--font-sans)" }}>
+          {live ? "Thinking…" : "Thought process"}
+        </span>
+        {live && (
+          <span style={{ display: "inline-flex", gap: 4 }}>
+            <span className="thinking-dot" style={{ width: 4, height: 4, animationDelay: "0ms" }} />
+            <span className="thinking-dot" style={{ width: 4, height: 4, animationDelay: "150ms" }} />
+            <span className="thinking-dot" style={{ width: 4, height: 4, animationDelay: "300ms" }} />
+          </span>
+        )}
+        <span style={{ flex: 1 }} />
+        <Icon name={open ? "chevdown" : "chevright"} size={11} />
+      </button>
+      {open && (
+        <div className="scroll-y" style={{
+          padding: "0 12px 10px", font: "400 12px/1.6 var(--font-sans)",
+          color: "var(--muted)", whiteSpace: "pre-wrap", maxHeight: 280,
+        }}>
+          {thinking}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Message({ m, skill, user, streaming = false }) {
   if (m.role === "user") {
     return (
@@ -565,11 +616,16 @@ function Message({ m, skill, user, streaming = false }) {
           <span style={{ font: "600 13px/1 var(--font-sans)" }}>{skill?.name}</span>
           <span className="mono muted" style={{ font: "400 11px/1 var(--font-mono)" }}>· {m.model || ""} · {m.ts}</span>
         </div>
+        {m.thinking && (
+          <ThinkingBox thinking={m.thinking} streaming={streaming} hasAnswer={!!m.text} />
+        )}
         <div style={{ font: "400 14.5px/1.65 var(--font-sans)", color: "var(--ink-2)" }}>
           {renderBlocks.map((b, i) => (
             <MessageBlock key={i} block={b} />
           ))}
-          {streaming && !inlineCursor && <StreamingIndicator hasText={!!m.text} />}
+          {streaming && !inlineCursor && !(m.thinking && !m.text) && (
+            <StreamingIndicator hasText={!!m.text} />
+          )}
         </div>
         {!streaming && (
           <div style={{ display: "flex", gap: 4, marginTop: 10 }}>

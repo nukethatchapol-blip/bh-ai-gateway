@@ -45,6 +45,7 @@ export default async function ChatPage({ searchParams }) {
         model: mm.model,
         text: mm.content?.text || "",
         blocks: mm.content?.blocks || [],
+        thinking: mm.content?.thinking || "",
         ts: "",
       }));
     }
