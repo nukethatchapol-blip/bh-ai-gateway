@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { MODELS, modelById } from "@/lib/models";
+import { parseMarkdown } from "@/lib/markdown";
 import {
   Avatar, BarMini, Field, Icon, Modal, Segmented, prettySize,
 } from "./ui";
@@ -31,7 +32,8 @@ export function ChatScreen({ profile, skills, branches, authorizedIds }) {
     const text = draft;
     const files = attached;
     const userMsg = { id: "u-" + Date.now(), role: "user", text, files, ts: "now" };
-    setMessages((m) => [...m, userMsg]);
+    const assistantId = "a-" + Date.now();
+    setMessages((m) => [...m, userMsg, { id: assistantId, role: "assistant", model: model.label, ts: "now", text: "", blocks: [] }]);
     setDraft("");
     setAttached([]);
     setPending(true);
@@ -46,30 +48,42 @@ export function ChatScreen({ profile, skills, branches, authorizedIds }) {
           modelId: model.id,
           branchScope,
           message: text,
-          files: files.map((f) => ({ name: f.name, size: f.size, type: f.type })),
-          history: messages.slice(-10).map((m) => ({
-            role: m.role === "user" ? "user" : "assistant",
-            content: m.text || m.blocks?.map((b) => b.text).join("\n") || "",
+          history: messages.slice(-10).map((mm) => ({
+            role: mm.role === "user" ? "user" : "assistant",
+            content: mm.text || (mm.blocks || []).map((b) => b.text || "").join("\n"),
           })),
         }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "chat failed");
-      if (data.chatId) setChatId(data.chatId);
-      setMessages((m) => [...m, {
-        id: "a-" + Date.now(),
-        role: data.blocked ? "blocked" : "assistant",
-        model: model.label,
-        ts: "now",
-        text: data.text,
-        blocks: data.blocks,
-      }]);
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error || `chat failed (${r.status})`);
+      }
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let acc = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let ev;
+          try { ev = JSON.parse(line); } catch { continue; }
+          if (ev.type === "text-delta") {
+            acc += ev.text;
+            setMessages((m) => m.map((x) => x.id === assistantId ? { ...x, text: acc } : x));
+          } else if (ev.type === "done") {
+            if (ev.chatId) setChatId(ev.chatId);
+          } else if (ev.type === "error") {
+            setMessages((m) => m.map((x) => x.id === assistantId ? { ...x, role: "blocked", text: ev.message } : x));
+          }
+        }
+      }
     } catch (e) {
-      setMessages((m) => [...m, {
-        id: "e-" + Date.now(),
-        role: "blocked",
-        text: e.message || "Request failed",
-      }]);
+      setMessages((m) => m.map((x) => x.id === assistantId ? { ...x, role: "blocked", text: e.message } : x));
     } finally {
       setPending(false);
     }
@@ -498,9 +512,9 @@ function Message({ m, skill, user }) {
           <span className="mono muted" style={{ font: "400 11px/1 var(--font-mono)" }}>· {m.model || ""} · {m.ts}</span>
         </div>
         <div style={{ font: "400 14.5px/1.65 var(--font-sans)", color: "var(--ink-2)" }}>
-          {m.blocks?.length
-            ? m.blocks.map((b, i) => <MessageBlock key={i} block={b} />)
-            : <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{m.text}</p>}
+          {(m.blocks?.length ? m.blocks : parseMarkdown(m.text || "")).map((b, i) => (
+            <MessageBlock key={i} block={b} />
+          ))}
         </div>
         <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
           <button className="btn btn-ghost btn-icon btn-sm" type="button"
