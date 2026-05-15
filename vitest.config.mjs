@@ -5,4 +5,10 @@ export default defineConfig({
     environment: "node",
     include: ["test/**/*.test.{js,mjs}"],
   },
+  resolve: {
+    alias: {
+      "server-only": new URL("./test/empty.js", import.meta.url).pathname,
+      "@": new URL(".", import.meta.url).pathname,
+    },
+  },
 });
