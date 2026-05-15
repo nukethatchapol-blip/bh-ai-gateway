@@ -8,19 +8,19 @@ import {
 } from "./ui";
 import { PageHeader } from "./shell";
 
-export function ChatScreen({ profile, skills, branches, authorizedIds }) {
+export function ChatScreen({ profile, skills, branches, authorizedIds, initialMessages = [], initialChatId = null }) {
   const [skillId, setSkillId] = useState(skills[0]?.id || "data-analyst");
   const [modelId, setModelId] = useState("claude-4.5-s");
   const [branchScope, setBranchScope] = useState("ALL");
   const [draft, setDraft] = useState("");
   const [attached, setAttached] = useState([]);
   const [dragging, setDragging] = useState(false);
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(initialMessages);
   const [showSkillPick, setShowSkillPick] = useState(false);
   const [showModelPick, setShowModelPick] = useState(false);
   const [showBranchPick, setShowBranchPick] = useState(false);
   const [pending, setPending] = useState(false);
-  const [chatId, setChatId] = useState(null);
+  const [chatId, setChatId] = useState(initialChatId);
 
   const skill = skills.find((s) => s.id === skillId) || skills[0];
   const model = modelById(modelId) || MODELS[0];
