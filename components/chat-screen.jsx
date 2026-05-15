@@ -62,6 +62,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds }) {
       const decoder = new TextDecoder();
       let buf = "";
       let acc = "";
+      const toolBlocks = [];
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -74,11 +75,21 @@ export function ChatScreen({ profile, skills, branches, authorizedIds }) {
           try { ev = JSON.parse(line); } catch { continue; }
           if (ev.type === "text-delta") {
             acc += ev.text;
-            setMessages((m) => m.map((x) => x.id === assistantId ? { ...x, text: acc } : x));
+            setMessages((m) => m.map((x) => x.id === assistantId
+              ? { ...x, text: acc, blocks: [...toolBlocks, ...parseMarkdown(acc)] } : x));
+          } else if (ev.type === "tool-call") {
+            toolBlocks.push({ type: "tool", name: ev.name, detail: summarizeArgs(ev.args), elapsed: "" });
+            setMessages((m) => m.map((x) => x.id === assistantId
+              ? { ...x, blocks: [...toolBlocks, ...parseMarkdown(acc)] } : x));
+          } else if (ev.type === "tool-result") {
+            if (ev.block) toolBlocks.push(ev.block);
+            setMessages((m) => m.map((x) => x.id === assistantId
+              ? { ...x, blocks: [...toolBlocks, ...parseMarkdown(acc)] } : x));
           } else if (ev.type === "done") {
             if (ev.chatId) setChatId(ev.chatId);
           } else if (ev.type === "error") {
-            setMessages((m) => m.map((x) => x.id === assistantId ? { ...x, role: "blocked", text: ev.message } : x));
+            setMessages((m) => m.map((x) => x.id === assistantId
+              ? { ...x, role: "blocked", text: ev.message } : x));
           }
         }
       }
@@ -618,4 +629,9 @@ function MessageBlock({ block }) {
     );
   }
   return null;
+}
+
+function summarizeArgs(args = {}) {
+  const parts = Object.entries(args).map(([k, v]) => `${k}=${v}`);
+  return parts.join(" · ");
 }
