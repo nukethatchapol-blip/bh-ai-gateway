@@ -25,9 +25,10 @@ export default async function AppLayout({ children }) {
 
   const { data: recents } = await supabase
     .from("chats")
-    .select("id, title, updated_at")
+    .select("id, title, updated_at, pinned")
+    .order("pinned", { ascending: false })
     .order("updated_at", { ascending: false })
-    .limit(6);
+    .limit(8);
 
   return (
     <AppShell>

@@ -214,6 +214,17 @@ function RecentItem({ chat, onNavigate, t }) {
     }
   }
 
+  async function togglePin() {
+    setBusy(true);
+    const r = await fetch(`/api/chats/${chat.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ pinned: !chat.pinned }),
+    });
+    setBusy(false);
+    if (r.ok) router.refresh();
+  }
+
   if (editing) {
     return (
       <div style={{ padding: "2px 6px" }}>
@@ -244,12 +255,24 @@ function RecentItem({ chat, onNavigate, t }) {
         background: hover ? "var(--hover)" : "transparent",
       }}
     >
+      {chat.pinned && (
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-flex", paddingLeft: 8, flexShrink: 0,
+            color: "var(--accent)",
+          }}
+        >
+          <Icon name="pin" size={11} fill="currentColor" stroke={1.25} />
+        </span>
+      )}
       <Link
         href={`/chat?c=${chat.id}`}
         onClick={onNavigate}
         title={chat.title}
         style={{
-          flex: 1, minWidth: 0, display: "block", padding: "6px 10px", height: 28,
+          flex: 1, minWidth: 0, display: "block",
+          padding: chat.pinned ? "6px 10px 6px 6px" : "6px 10px", height: 28,
           color: isActive ? "var(--ink)" : "var(--muted)",
           font: `${isActive ? 500 : 400} 12.5px/1.4 var(--font-sans)`,
           textAlign: "left", overflow: "hidden", textDecoration: "none",
@@ -260,6 +283,16 @@ function RecentItem({ chat, onNavigate, t }) {
       </Link>
       {hover && (
         <>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={togglePin}
+            title={chat.pinned ? t("recents.unpin") : t("recents.pin")}
+            disabled={busy}
+            style={{ width: 22, height: 22, color: chat.pinned ? "var(--accent)" : "var(--muted)" }}
+          >
+            <Icon name="pin" size={11} fill={chat.pinned ? "currentColor" : "none"} />
+          </button>
           <button
             type="button"
             className="btn btn-ghost btn-icon btn-sm"
