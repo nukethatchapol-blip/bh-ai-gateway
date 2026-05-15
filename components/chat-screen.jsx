@@ -523,6 +523,25 @@ function MessageBlock({ block }) {
       .replace(/\[(BKK|CNX|HKT|PTY|KKC|UDN|HHN)-(\d+)\]/g, '<span class="chip">$1-$2</span>');
     return <p style={{ margin: "0 0 12px" }} dangerouslySetInnerHTML={{ __html: html }} />;
   }
+  if (block.type === "heading") {
+    const sizes = { 1: 20, 2: 17, 3: 15, 4: 13.5 };
+    return (
+      <div style={{
+        font: `600 ${sizes[block.level] || 14}px/1.3 var(--font-sans)`,
+        letterSpacing: "-0.01em", margin: "4px 0 8px",
+      }}>{block.text}</div>
+    );
+  }
+  if (block.type === "code") {
+    return (
+      <pre className="mono" style={{
+        margin: "0 0 12px", padding: "12px 14px", borderRadius: 8,
+        background: "var(--bg-2)", border: "0.5px solid var(--line)",
+        font: "400 12px/1.6 var(--font-mono)", color: "var(--ink-2)",
+        overflowX: "auto", whiteSpace: "pre",
+      }}>{block.text}</pre>
+    );
+  }
   if (block.type === "tool") {
     return (
       <div style={{
