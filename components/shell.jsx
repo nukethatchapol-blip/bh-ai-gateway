@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Avatar, BearLogo, Icon } from "./ui";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 import { useLang } from "./lang-context";
@@ -119,20 +119,7 @@ export function Sidebar({ user, recents = [] }) {
           <>
             <div style={{ padding: "16px 10px 6px" }} className="eyebrow">{t("nav.recents")}</div>
             {recents.slice(0, 5).map((c) => (
-              <Link
-                key={c.id}
-                href={`/chat?c=${c.id}`}
-                onClick={close}
-                style={{
-                  width: "100%", display: "block", padding: "6px 10px", height: 28,
-                  background: "transparent", color: "var(--muted)",
-                  font: "400 12.5px/1 var(--font-sans)",
-                  textAlign: "left", overflow: "hidden", textDecoration: "none",
-                  whiteSpace: "nowrap", textOverflow: "ellipsis", borderRadius: 6,
-                }}
-              >
-                {c.title}
-              </Link>
+              <RecentItem key={c.id} chat={c} onNavigate={close} t={t} />
             ))}
           </>
         )}
@@ -186,6 +173,116 @@ export function Sidebar({ user, recents = [] }) {
         </div>
       </div>
     </aside>
+  );
+}
+
+function RecentItem({ chat, onNavigate, t }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const isActive = searchParams.get("c") === chat.id;
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(chat.title || "");
+  const [hover, setHover] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => { if (editing) inputRef.current?.select(); }, [editing]);
+
+  async function saveRename() {
+    const next = name.trim();
+    if (!next || next === chat.title) { setEditing(false); setName(chat.title || ""); return; }
+    setBusy(true);
+    const r = await fetch(`/api/chats/${chat.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: next }),
+    });
+    setBusy(false);
+    setEditing(false);
+    if (r.ok) router.refresh();
+    else setName(chat.title || "");
+  }
+
+  async function remove() {
+    if (!window.confirm(t("recents.deleteConfirm"))) return;
+    setBusy(true);
+    const r = await fetch(`/api/chats/${chat.id}`, { method: "DELETE" });
+    setBusy(false);
+    if (r.ok) {
+      if (isActive) router.push("/chat");
+      router.refresh();
+    }
+  }
+
+  if (editing) {
+    return (
+      <div style={{ padding: "2px 6px" }}>
+        <input
+          ref={inputRef}
+          className="input"
+          value={name}
+          disabled={busy}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") saveRename();
+            if (e.key === "Escape") { setEditing(false); setName(chat.title || ""); }
+          }}
+          onBlur={saveRename}
+          style={{ height: 28, font: "400 12.5px/1 var(--font-sans)" }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 4,
+        borderRadius: 6, paddingRight: 4,
+        background: hover ? "var(--hover)" : "transparent",
+      }}
+    >
+      <Link
+        href={`/chat?c=${chat.id}`}
+        onClick={onNavigate}
+        title={chat.title}
+        style={{
+          flex: 1, minWidth: 0, display: "block", padding: "6px 10px", height: 28,
+          color: isActive ? "var(--ink)" : "var(--muted)",
+          font: `${isActive ? 500 : 400} 12.5px/1.4 var(--font-sans)`,
+          textAlign: "left", overflow: "hidden", textDecoration: "none",
+          whiteSpace: "nowrap", textOverflow: "ellipsis",
+        }}
+      >
+        {chat.title}
+      </Link>
+      {hover && (
+        <>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={() => { setName(chat.title || ""); setEditing(true); }}
+            title={t("recents.rename")}
+            disabled={busy}
+            style={{ width: 22, height: 22, color: "var(--muted)" }}
+          >
+            <Icon name="edit" size={11} />
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon btn-sm"
+            onClick={remove}
+            title={t("recents.delete")}
+            disabled={busy}
+            style={{ width: 22, height: 22, color: "var(--muted)" }}
+          >
+            <Icon name="trash" size={11} />
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
