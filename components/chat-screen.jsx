@@ -146,15 +146,15 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
           {messages.length === 0 && (
             <EmptyChat skill={skill} scope={scopedBranch} />
           )}
-          {messages.map((m) => (
-            <Message key={m.id} m={m} skill={skill} user={profile} />
+          {messages.map((m, i) => (
+            <Message
+              key={m.id}
+              m={m}
+              skill={skill}
+              user={profile}
+              streaming={pending && i === messages.length - 1 && m.role === "assistant"}
+            />
           ))}
-          {pending && (
-            <div style={{ padding: "14px 0", display: "flex", gap: 12 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 999, flexShrink: 0, background: "var(--accent-soft)" }} />
-              <div className="mono muted" style={{ font: "400 12px/1 var(--font-mono)", alignSelf: "center" }}>thinking…</div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -458,7 +458,20 @@ function EmptyChat({ skill, scope }) {
   );
 }
 
-function Message({ m, skill, user }) {
+function StreamingIndicator({ hasText }) {
+  if (hasText) {
+    return <span className="stream-cursor" aria-hidden="true" />;
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 0" }} aria-label="Thinking">
+      <span className="thinking-dot" style={{ animationDelay: "0ms" }} />
+      <span className="thinking-dot" style={{ animationDelay: "150ms" }} />
+      <span className="thinking-dot" style={{ animationDelay: "300ms" }} />
+    </div>
+  );
+}
+
+function Message({ m, skill, user, streaming = false }) {
   if (m.role === "user") {
     return (
       <div style={{ display: "flex", gap: 12, padding: "14px 0", flexDirection: "row-reverse" }}>
@@ -508,6 +521,15 @@ function Message({ m, skill, user }) {
       </div>
     );
   }
+  // assistant
+  const blocks = m.blocks?.length ? m.blocks : parseMarkdown(m.text || "");
+  const lastBlock = blocks[blocks.length - 1];
+  // When streaming with text, blink the cursor at the end of the last
+  // paragraph (Claude-style). Otherwise the indicator renders standalone.
+  const inlineCursor = streaming && !!m.text && lastBlock?.type === "p";
+  const renderBlocks = inlineCursor
+    ? blocks.map((b, i) => (i === blocks.length - 1 ? { ...b, _cursor: true } : b))
+    : blocks;
   return (
     <div style={{ display: "flex", gap: 12, padding: "14px 0" }}>
       <div style={{
@@ -523,18 +545,21 @@ function Message({ m, skill, user }) {
           <span className="mono muted" style={{ font: "400 11px/1 var(--font-mono)" }}>· {m.model || ""} · {m.ts}</span>
         </div>
         <div style={{ font: "400 14.5px/1.65 var(--font-sans)", color: "var(--ink-2)" }}>
-          {(m.blocks?.length ? m.blocks : parseMarkdown(m.text || "")).map((b, i) => (
+          {renderBlocks.map((b, i) => (
             <MessageBlock key={i} block={b} />
           ))}
+          {streaming && !inlineCursor && <StreamingIndicator hasText={!!m.text} />}
         </div>
-        <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
-          <button className="btn btn-ghost btn-icon btn-sm" type="button"
-            onClick={() => navigator.clipboard?.writeText(m.text || "")}>
-            <Icon name="copy" size={12} style={{ color: "var(--muted)" }} />
-          </button>
-          <button className="btn btn-ghost btn-icon btn-sm" type="button"><Icon name="arrow_up" size={12} style={{ color: "var(--muted)" }} /></button>
-          <button className="btn btn-ghost btn-icon btn-sm" type="button"><Icon name="arrow_down" size={12} style={{ color: "var(--muted)" }} /></button>
-        </div>
+        {!streaming && (
+          <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
+            <button className="btn btn-ghost btn-icon btn-sm" type="button"
+              onClick={() => navigator.clipboard?.writeText(m.text || "")}>
+              <Icon name="copy" size={12} style={{ color: "var(--muted)" }} />
+            </button>
+            <button className="btn btn-ghost btn-icon btn-sm" type="button"><Icon name="arrow_up" size={12} style={{ color: "var(--muted)" }} /></button>
+            <button className="btn btn-ghost btn-icon btn-sm" type="button"><Icon name="arrow_down" size={12} style={{ color: "var(--muted)" }} /></button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -545,7 +570,8 @@ function MessageBlock({ block }) {
     const html = block.text
       .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
       .replace(/`([^`]+)`/g, '<code style="font:500 12.5px/1 var(--font-mono);background:var(--bg-2);padding:1px 5px;border-radius:4px;">$1</code>')
-      .replace(/\[(BKK|CNX|HKT|PTY|KKC|UDN|HHN)-(\d+)\]/g, '<span class="chip">$1-$2</span>');
+      .replace(/\[(BKK|CNX|HKT|PTY|KKC|UDN|HHN)-(\d+)\]/g, '<span class="chip">$1-$2</span>')
+      + (block._cursor ? '<span class="stream-cursor"></span>' : "");
     return <p style={{ margin: "0 0 12px" }} dangerouslySetInnerHTML={{ __html: html }} />;
   }
   if (block.type === "heading") {

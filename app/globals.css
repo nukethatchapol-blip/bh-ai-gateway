@@ -189,6 +189,28 @@ textarea.input { padding: 10px 12px; height: auto; resize: none; line-height: 1.
 button { font-family: inherit; }
 a { color: inherit; }
 
+/* ---------- chat: thinking + streaming ---------- */
+@keyframes think-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.3; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+@keyframes cursor-blink {
+  0%, 45% { opacity: 1; }
+  55%, 95% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.thinking-dot {
+  width: 6px; height: 6px; border-radius: 999px;
+  background: var(--accent); display: inline-block;
+  animation: think-bounce 1.15s ease-in-out infinite;
+}
+.stream-cursor {
+  display: inline-block; width: 7px; height: 15px;
+  background: var(--accent); border-radius: 1.5px;
+  margin-left: 3px; vertical-align: -2px;
+  animation: cursor-blink 1.05s steps(1, end) infinite;
+}
+
 /* ---------- mobile drawer ---------- */
 .sidebar-backdrop {
   position: fixed; inset: 0;
