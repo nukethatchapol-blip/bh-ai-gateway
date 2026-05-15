@@ -52,6 +52,10 @@ export default async function ChatPage({ searchParams }) {
 
   return (
     <ChatScreen
+      // Remount when the chat changes so initial state re-hydrates —
+      // client-side nav between /chat?c=A and /chat?c=B reuses the same
+      // component instance otherwise, and useState ignores new props.
+      key={initialChatId || "new"}
       profile={profile}
       skills={skills || []}
       branches={branches || []}
