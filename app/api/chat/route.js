@@ -1,6 +1,8 @@
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { resolveProviderKey } from "@/lib/ai/route";
-import { streamWithTools } from "@/lib/ai/stream";
+import { streamWithTools, callForTools } from "@/lib/ai/stream";
+import { runAgentLoop } from "@/lib/ai/loop";
+import { TOOLS, executeTool } from "@/lib/ai/tools";
 import { modelById } from "@/lib/models";
 
 export const dynamic = "force-dynamic";
@@ -86,17 +88,35 @@ export async function POST(request) {
   const stream = new ReadableStream({
     async start(controller) {
       let full = "";
+      const blocks = [];
+      const toolsEnabled = (skill.tools || []).includes("supabase.query");
       try {
-        await streamWithTools({
-          provider: m.provider, model: m.id, apiKey: key, system,
+        await runAgentLoop({
           messages: [...history, { role: "user", content: message }],
+          tools: toolsEnabled ? TOOLS : [],
+          callForTools: async (convo) => {
+            if (!toolsEnabled) return { text: "", toolCalls: [] };
+            return callForTools({
+              provider: m.provider, model: m.id, apiKey: key,
+              system, messages: convo, tools: TOOLS,
+            });
+          },
+          executeTool: (name, args) => executeTool(supabase, name, args),
+          streamFinal: async ({ messages: convo, onEvent }) => {
+            return streamWithTools({
+              provider: m.provider, model: m.id, apiKey: key,
+              system, messages: convo, onEvent,
+            });
+          },
           onEvent: (ev) => {
             if (ev.type === "text-delta") { full += ev.text; sse(controller, ev); }
+            else if (ev.type === "tool-call") sse(controller, ev);
+            else if (ev.type === "tool-result") { if (ev.block) blocks.push(ev.block); sse(controller, ev); }
           },
         });
         await supabase.from("messages").insert({
           chat_id: cid, user_id: profile.id, role: "assistant",
-          content: { text: full }, model: m.id,
+          content: { text: full, blocks }, model: m.id,
         });
         await supabase.from("audit_log").insert({
           user_id: profile.id, action: "chat.message",
