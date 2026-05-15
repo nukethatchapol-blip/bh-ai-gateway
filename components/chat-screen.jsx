@@ -21,11 +21,29 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
   const [showBranchPick, setShowBranchPick] = useState(false);
   const [pending, setPending] = useState(false);
   const [chatId, setChatId] = useState(initialChatId);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const skill = skills.find((s) => s.id === skillId) || skills[0];
   const model = modelById(modelId) || MODELS[0];
   const scopedBranch = branchScope === "ALL" ? null : branches.find((b) => b.id === branchScope);
   const composerRef = useRef(null);
+
+  async function shareTranscript() {
+    const sections = messages.map((m) => {
+      if (m.role === "user") return `## You\n\n${m.text || ""}`;
+      if (m.role === "blocked") return `## System\n\n${m.text || ""}`;
+      const body = m.text || (m.blocks || []).map((b) => b.text || "").filter(Boolean).join("\n");
+      return `## ${skill?.name || "Assistant"}${m.model ? ` · ${m.model}` : ""}\n\n${body}`;
+    });
+    const transcript = `# BEARHOUSE AI Gateway — conversation\n\n${sections.join("\n\n")}\n`;
+    try {
+      await navigator.clipboard.writeText(transcript);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 1800);
+    } catch {
+      /* clipboard unavailable (insecure context / permission) */
+    }
+  }
 
   async function send() {
     if (!draft.trim() && !attached.length) return;
@@ -112,8 +130,11 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
       <PageHeader title="New chat" crumb="/ chat">
         <BranchScopePill scope={branchScope} count={authorizedIds.length}
           branch={scopedBranch} onOpen={() => setShowBranchPick(true)} />
-        <button className="btn btn-sm btn-ghost" type="button">
-          <Icon name="upload" size={13} /> Share
+        <button className="btn btn-sm btn-ghost" type="button"
+          onClick={shareTranscript} disabled={messages.length === 0}
+          title="Copy the conversation transcript to your clipboard">
+          <Icon name={shareCopied ? "check" : "upload"} size={13} />
+          {shareCopied ? "Copied" : "Share"}
         </button>
         <button className="btn btn-sm btn-primary" type="button"
           onClick={() => { setMessages([]); setChatId(null); }}>
