@@ -22,6 +22,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
   const [pending, setPending] = useState(false);
   const [chatId, setChatId] = useState(initialChatId);
   const [shareCopied, setShareCopied] = useState(false);
+  const [showThinking, setShowThinking] = useState(false);
 
   const skill = skills.find((s) => s.id === skillId) || skills[0];
   const model = modelById(modelId) || MODELS[0];
@@ -135,6 +136,20 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
       <PageHeader title="New chat" crumb="/ chat">
         <BranchScopePill scope={branchScope} count={authorizedIds.length}
           branch={scopedBranch} onOpen={() => setShowBranchPick(true)} />
+        <button
+          className="btn btn-sm"
+          type="button"
+          onClick={() => setShowThinking((v) => !v)}
+          title={showThinking ? "Hide all thinking" : "Show all thinking"}
+          style={{
+            background: showThinking ? "var(--accent-soft)" : "var(--panel)",
+            color: showThinking ? "var(--accent-ink)" : "var(--ink)",
+            borderColor: showThinking ? "transparent" : "var(--line)",
+          }}
+        >
+          <Icon name="sparkles" size={13} style={{ color: showThinking ? "var(--accent-ink)" : "var(--muted)" }} />
+          {showThinking ? "Hide thinking" : "Show thinking"}
+        </button>
         <button className="btn btn-sm btn-ghost" type="button"
           onClick={shareTranscript} disabled={messages.length === 0}
           title="Copy the conversation transcript to your clipboard">
@@ -179,6 +194,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
               skill={skill}
               user={profile}
               streaming={pending && i === messages.length - 1 && m.role === "assistant"}
+              showThinking={showThinking}
             />
           ))}
         </div>
@@ -497,26 +513,23 @@ function StreamingIndicator({ hasText }) {
   );
 }
 
-// Collapsible reasoning box. Expanded while the model is still thinking
-// (no answer yet); auto-collapses once the answer starts so only the
-// result shows. Click the header to re-open.
-function ThinkingBox({ thinking, streaming, hasAnswer }) {
-  const [manualOpen, setManualOpen] = useState(null);
+// Reasoning box. While the model is actively thinking (streaming, no
+// answer yet) it always shows live. Once the answer is in, visibility is
+// driven by the global "Show thinking" header toggle (`show`).
+function ThinkingBox({ thinking, streaming, hasAnswer, show }) {
   if (!thinking) return null;
-  const autoOpen = streaming && !hasAnswer;
-  const open = manualOpen === null ? autoOpen : manualOpen;
   const live = streaming && !hasAnswer;
+  if (!live && !show) return null; // hidden by the global toggle
+
   return (
     <div style={{
       margin: "0 0 10px", border: "0.5px solid var(--line)",
       borderRadius: 8, background: "var(--bg-2)", overflow: "hidden",
     }}>
-      <button type="button" onClick={() => setManualOpen(!open)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", gap: 8,
-          padding: "7px 10px", background: "transparent", border: 0,
-          cursor: "pointer", color: "var(--muted)",
-        }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "7px 10px", color: "var(--muted)",
+      }}>
         <Icon name="sparkles" size={12} style={{ color: "var(--accent)" }} />
         <span style={{ font: "500 11.5px/1 var(--font-sans)" }}>
           {live ? "Thinking…" : "Thought process"}
@@ -528,22 +541,18 @@ function ThinkingBox({ thinking, streaming, hasAnswer }) {
             <span className="thinking-dot" style={{ width: 4, height: 4, animationDelay: "300ms" }} />
           </span>
         )}
-        <span style={{ flex: 1 }} />
-        <Icon name={open ? "chevdown" : "chevright"} size={11} />
-      </button>
-      {open && (
-        <div className="scroll-y" style={{
-          padding: "0 12px 10px", font: "400 12px/1.6 var(--font-sans)",
-          color: "var(--muted)", whiteSpace: "pre-wrap", maxHeight: 280,
-        }}>
-          {thinking}
-        </div>
-      )}
+      </div>
+      <div className="scroll-y" style={{
+        padding: "0 12px 10px", font: "400 12px/1.6 var(--font-sans)",
+        color: "var(--muted)", whiteSpace: "pre-wrap", maxHeight: 280,
+      }}>
+        {thinking}
+      </div>
     </div>
   );
 }
 
-function Message({ m, skill, user, streaming = false }) {
+function Message({ m, skill, user, streaming = false, showThinking = false }) {
   if (m.role === "user") {
     return (
       <div style={{ display: "flex", gap: 12, padding: "14px 0", flexDirection: "row-reverse" }}>
@@ -617,7 +626,7 @@ function Message({ m, skill, user, streaming = false }) {
           <span className="mono muted" style={{ font: "400 11px/1 var(--font-mono)" }}>· {m.model || ""} · {m.ts}</span>
         </div>
         {m.thinking && (
-          <ThinkingBox thinking={m.thinking} streaming={streaming} hasAnswer={!!m.text} />
+          <ThinkingBox thinking={m.thinking} streaming={streaming} hasAnswer={!!m.text} show={showThinking} />
         )}
         <div style={{ font: "400 14.5px/1.65 var(--font-sans)", color: "var(--ink-2)" }}>
           {renderBlocks.map((b, i) => (
