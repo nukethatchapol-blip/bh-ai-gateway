@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Avatar, BearLogo, Icon } from "./ui";
 import { SidebarProvider, useSidebar } from "./sidebar-context";
 import { useLang } from "./lang-context";
+import { EXTERNAL_APPS } from "@/lib/apps";
 
 const NAV = [
   { id: "chat",      labelKey: "nav.chat",      icon: "chat",      href: "/chat" },
@@ -115,6 +116,38 @@ export function Sidebar({ user, recents = [] }) {
           );
         })}
 
+        {!collapsed && (
+          <div style={{ padding: "16px 10px 6px" }} className="eyebrow">{t("apps.group")}</div>
+        )}
+        {EXTERNAL_APPS.map((app) => {
+          const label = t(app.labelKey);
+          return (
+            <a
+              key={app.id}
+              href={app.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={close}
+              title={collapsed ? label : ""}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", gap: 10,
+                padding: collapsed ? "9px 12px" : "8px 10px", height: 36, borderRadius: 8,
+                background: "transparent", color: "var(--ink-2)",
+                font: "400 13px/1 var(--font-sans)",
+                marginBottom: 2, textAlign: "left",
+                border: "0.5px solid transparent",
+                justifyContent: collapsed ? "center" : "flex-start",
+                textDecoration: "none",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--hover)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <Icon name={app.icon} size={15} stroke={1.5} style={{ color: "var(--muted)" }} />
+              {!collapsed && <span style={{ flex: 1 }}>{label}</span>}
+              {!collapsed && <Icon name="ext" size={11} style={{ color: "var(--muted-2)" }} />}
+            </a>
+          );
+        })}
         {!collapsed && recents.length > 0 && (
           <>
             <div style={{ padding: "16px 10px 6px" }} className="eyebrow">{t("nav.recents")}</div>
