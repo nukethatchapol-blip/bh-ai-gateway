@@ -14,16 +14,28 @@ export default async function DashboardPage({ searchParams }) {
   const from = safeDate(params?.from, monthAgo.toISOString().slice(0, 10));
   const to   = safeDate(params?.to,   today.toISOString().slice(0, 10));
 
+  // Prior window: same length, immediately preceding [from, to].
+  const fromMs = Date.parse(from), toMs = Date.parse(to);
+  const lenMs  = Math.max(0, toMs - fromMs);
+  const prevTo   = new Date(fromMs - 86400000).toISOString().slice(0, 10);
+  const prevFrom = new Date(fromMs - 86400000 - lenMs).toISOString().slice(0, 10);
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // These four queries are independent — run them in parallel instead of
-  // four sequential round trips to the (Singapore) DB.
-  const [{ data: profile }, { data: branches }, { data: access }, { data: kpis }] = await Promise.all([
+  // Independent — one round trip (functions co-located with the DB in sin1).
+  const [
+    { data: profile }, { data: branches }, { data: access },
+    { data: kpis }, { data: kpisPrior },
+    { data: daily }, { data: dailyPrior },
+  ] = await Promise.all([
     supabase.from("profiles").select("id, role").eq("id", user.id).single(),
     supabase.from("branches").select("*").order("name"),
     supabase.from("branch_access").select("branch_id").eq("user_id", user.id),
-    supabase.rpc("bearhouse_branch_kpis", { p_from: from, p_to: to }),
+    supabase.rpc("bearhouse_branch_kpis",  { p_from: from,     p_to: to }),
+    supabase.rpc("bearhouse_branch_kpis",  { p_from: prevFrom, p_to: prevTo }),
+    supabase.rpc("bearhouse_daily_revenue", { p_from: from,     p_to: to }),
+    supabase.rpc("bearhouse_daily_revenue", { p_from: prevFrom, p_to: prevTo }),
   ]);
   const authorizedIds = (access || []).map((a) => a.branch_id);
 
@@ -33,6 +45,9 @@ export default async function DashboardPage({ searchParams }) {
       branches={branches || []}
       authorizedIds={authorizedIds}
       kpis={kpis || []}
+      kpisPrior={kpisPrior || []}
+      daily={daily || []}
+      dailyPrior={dailyPrior || []}
       from={from}
       to={to}
     />
