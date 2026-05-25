@@ -370,7 +370,10 @@ a { color: inherit; }
   --tab-bg: rgba(250, 247, 241, 0.88);
   --composer-bg: rgba(250, 247, 241, 0.92);
   --sheet-scrim: rgba(0, 0, 0, 0.4);
-  --safe-bottom: 20px;
+  /* env() resolves to 0 unless the viewport opts into viewport-fit=cover,
+     so max() keeps a sensible floor on every device. */
+  --safe-bottom: max(16px, env(safe-area-inset-bottom));
+  --tabbar-h: calc(60px + var(--safe-bottom));
 }
 :root[data-theme="dark"] {
   --tab-bg: rgba(20, 16, 11, 0.85);
@@ -379,12 +382,18 @@ a { color: inherit; }
 }
 .m-shell {
   width: 100%; max-width: 480px; margin: 0 auto;
-  height: 100vh; position: relative;
+  /* 100vh is taller than the visible area on mobile (it counts the space
+     behind the browser's address/tool bars), which pushes the absolutely
+     positioned tab bar off the bottom of the screen. dvh tracks the
+     *visible* viewport, keeping the tab bar on-screen on every page. */
+  height: 100vh;
+  height: 100dvh;
+  position: relative;
   background: var(--bg); color: var(--ink);
   display: flex; flex-direction: column; overflow: hidden;
   border-left: 0.5px solid var(--line); border-right: 0.5px solid var(--line);
 }
-.m-shell-bg { min-height: 100vh; background: var(--bg-2); }
+.m-shell-bg { min-height: 100vh; min-height: 100dvh; background: var(--bg-2); }
 .m-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 .m-tabbar {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 30;

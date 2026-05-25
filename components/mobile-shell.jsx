@@ -5,7 +5,7 @@ export function MobileShell({ role, children }) {
   return (
     <div className="m-shell-bg">
       <div className="m-shell">
-        <div className="m-scroll" style={{ paddingBottom: 84 }}>{children}</div>
+        <div className="m-scroll" style={{ paddingBottom: "var(--tabbar-h)" }}>{children}</div>
         <TabBar role={role} />
       </div>
     </div>

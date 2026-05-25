@@ -217,10 +217,11 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
         ))}
       </div>
 
-      {/* sticky composer */}
+      {/* sticky composer — pinned just above the bottom tab bar so the two
+          never overlap (the tab bar owns the bottom safe-area). */}
       <div style={{
-        position: "sticky", bottom: 0, zIndex: 20,
-        padding: "10px 12px calc(var(--safe-bottom) + 6px)",
+        position: "sticky", bottom: "var(--tabbar-h)", zIndex: 20,
+        padding: "10px 12px 10px",
         background: "var(--composer-bg)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderTop: "0.5px solid var(--line)",
       }}>

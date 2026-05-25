@@ -8,6 +8,14 @@ export const metadata = {
   description: "One AI, all branches, only your data.",
 };
 
+// viewport-fit=cover lets env(safe-area-inset-*) report real values on
+// notched phones so the bottom tab bar clears the home indicator.
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default async function RootLayout({ children }) {
   const c = await cookies();
   const cookieLang = c.get("lang")?.value;
