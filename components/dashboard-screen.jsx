@@ -293,13 +293,99 @@ function RevenueChart({ range, branches, growth }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Date-range bottom sheet — Task 10 places a minimal native-input
-// fallback here; Task 11 replaces it with presets + a month calendar.
+// Date-range bottom sheet (presets + month calendar)
 // ─────────────────────────────────────────────────────────────
+function ymd(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseYmd(s) {
+  const [y, m, d] = (s || "").split("-").map(Number);
+  return new Date(y || 1970, (m || 1) - 1, d || 1);
+}
+
+function addDays(d, n) {
+  const r = new Date(d);
+  r.setDate(r.getDate() + n);
+  return r;
+}
+
+function presetRange(id) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dow = today.getDay(); // 0=Sun
+  switch (id) {
+    case "today":  return [today, today];
+    case "yest":   { const y = addDays(today, -1); return [y, y]; }
+    case "7d":     return [addDays(today, -6), today];
+    case "14d":    return [addDays(today, -13), today];
+    case "30d":    return [addDays(today, -29), today];
+    case "tw":     { const start = addDays(today, -((dow + 6) % 7)); return [start, today]; } // Monday start
+    case "tm":     return [new Date(today.getFullYear(), today.getMonth(), 1), today];
+    case "qtd":    { const q = Math.floor(today.getMonth() / 3) * 3; return [new Date(today.getFullYear(), q, 1), today]; }
+    default:       return [today, today];
+  }
+}
+
 function DateRangeSheet({ from, to, lang, onClose, onApply }) {
   const { t } = useLang();
-  const [f, setF] = useState(from);
-  const [tt, setTt] = useState(to);
+  const [start, setStart] = useState(parseYmd(from));
+  const [end,   setEnd]   = useState(parseYmd(to));
+  const [view,  setView]  = useState(() => { const d = parseYmd(from); return new Date(d.getFullYear(), d.getMonth(), 1); });
+
+  const presets = [
+    { id: "today", label: t("dash.preset.today") },
+    { id: "yest",  label: t("dash.preset.yesterday") },
+    { id: "7d",    label: t("dash.preset.7d") },
+    { id: "14d",   label: t("dash.preset.14d") },
+    { id: "30d",   label: t("dash.preset.30d") },
+    { id: "tw",    label: t("dash.preset.thisWeek") },
+    { id: "tm",    label: t("dash.preset.thisMonth") },
+    { id: "qtd",   label: t("dash.preset.qtd") },
+  ];
+
+  const startMs = start.getTime();
+  const endMs   = end.getTime();
+  const lo = Math.min(startMs, endMs);
+  const hi = Math.max(startMs, endMs);
+
+  function pickPreset(id) {
+    const [f, tt] = presetRange(id);
+    setStart(f);
+    setEnd(tt);
+    setView(new Date(f.getFullYear(), f.getMonth(), 1));
+  }
+
+  function pickDay(d) {
+    // If a full range is already selected (or the tap is before the start),
+    // begin a new range; otherwise extend the current start to the tapped day.
+    if (startMs !== endMs || d.getTime() < startMs) {
+      setStart(d);
+      setEnd(d);
+    } else {
+      setEnd(d);
+    }
+  }
+
+  // Build calendar cells for `view` month (Sunday-first grid).
+  const year = view.getFullYear();
+  const month = view.getMonth();
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7) cells.push(null);
+
+  const todayMs = (() => { const x = new Date(); x.setHours(0, 0, 0, 0); return x.getTime(); })();
+  const monthLabel = view.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { month: "long", year: "numeric" });
+  const dow = lang === "th" ? ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"] : ["S", "M", "T", "W", "T", "F", "S"];
+
+  const fmtChip = (d) => d.toLocaleDateString(lang === "th" ? "th-TH" : "en-US", { day: "numeric", month: "short", year: "numeric" });
+  const daysSelected = Math.round((hi - lo) / 86400000) + 1;
 
   return (
     <Sheet
@@ -314,21 +400,114 @@ function DateRangeSheet({ from, to, lang, onClose, onApply }) {
         right: t("dash.done"),
       }}
     >
+      {/* from/to chips */}
       <div style={{ display: "flex", gap: 8, padding: "12px 16px 8px" }}>
-        <label style={{ flex: 1, padding: "10px 12px", borderRadius: 12, background: "var(--panel)", border: "1px solid var(--line)" }}>
-          <div style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>{t("common.from")}</div>
-          <input type="date" value={f} max={tt} onChange={(e) => setF(e.target.value)} className="mono"
-            style={{ appearance: "none", border: 0, background: "transparent", marginTop: 6, font: "600 14.5px/1 var(--font-sans)", color: "var(--ink)", outline: "none", width: "100%" }} />
-        </label>
-        <label style={{ flex: 1, padding: "10px 12px", borderRadius: 12, background: "var(--panel)", border: "1px solid var(--accent)" }}>
-          <div style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>{t("common.to")}</div>
-          <input type="date" value={tt} min={f} onChange={(e) => setTt(e.target.value)} className="mono"
-            style={{ appearance: "none", border: 0, background: "transparent", marginTop: 6, font: "600 14.5px/1 var(--font-sans)", color: "var(--ink)", outline: "none", width: "100%" }} />
-        </label>
+        {[
+          { l: t("common.from"), v: fmtChip(new Date(lo)), active: false },
+          { l: t("common.to"),   v: fmtChip(new Date(hi)), active: true },
+        ].map((c, i) => (
+          <div key={i} style={{
+            flex: 1, padding: "10px 12px", borderRadius: 12,
+            background: "var(--panel)", border: `1px solid ${c.active ? "var(--accent)" : "var(--line)"}`,
+          }}>
+            <div style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>{c.l}</div>
+            <div style={{ font: "600 14.5px/1 var(--font-sans)", color: "var(--ink)", marginTop: 6 }}>{c.v}</div>
+          </div>
+        ))}
       </div>
 
-      <div style={{ padding: "8px 16px 16px" }}>
-        <button type="button" onClick={() => onApply(f, tt)} style={{
+      {/* preset chips */}
+      <div style={{ display: "flex", gap: 6, padding: "6px 16px 12px", flexWrap: "wrap" }}>
+        {presets.map((p) => {
+          const [pf, pt] = presetRange(p.id);
+          const active = pf.getTime() === lo && pt.getTime() === hi;
+          return (
+            <button key={p.id} type="button" onClick={() => pickPreset(p.id)} style={{
+              padding: "6px 12px", borderRadius: 999, flexShrink: 0, cursor: "pointer",
+              font: `${active ? 600 : 500} 12.5px/1 var(--font-sans)`,
+              background: active ? "var(--accent)" : "var(--panel)",
+              color: active ? "#fff" : "var(--ink-2)",
+              border: active ? "0.5px solid transparent" : "0.5px solid var(--line)",
+            }}>{p.label}</button>
+          );
+        })}
+      </div>
+
+      {/* calendar */}
+      <div style={{ padding: "0 16px 12px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 4px 10px" }}>
+          <button type="button" onClick={() => setView(new Date(year, month - 1, 1))} style={roundBtn()} aria-label="Previous month">
+            <Icon name="chevleft" size={13} stroke={2} />
+          </button>
+          <div style={{ font: "600 15px/1 var(--font-sans)", color: "var(--ink)" }}>{monthLabel}</div>
+          <button type="button" onClick={() => setView(new Date(year, month + 1, 1))} style={roundBtn()} aria-label="Next month">
+            <Icon name="chevright" size={13} stroke={2} />
+          </button>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
+          {dow.map((d, i) => (
+            <div key={i} style={{
+              textAlign: "center", padding: "4px 0",
+              font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)",
+              textTransform: "uppercase", letterSpacing: ".08em",
+            }}>{d}</div>
+          ))}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+          {cells.map((d, i) => {
+            if (!d) return <div key={i} style={{ aspectRatio: "1" }} />;
+            const cur = new Date(year, month, d).getTime();
+            const isStart = cur === lo;
+            const isEnd = cur === hi;
+            const isMid = cur > lo && cur < hi;
+            const isToday = cur === todayMs;
+            const isFuture = cur > todayMs;
+            return (
+              <button key={i} type="button" onClick={() => pickDay(new Date(year, month, d))} style={{
+                aspectRatio: "1", position: "relative", border: 0, background: "transparent", padding: 0, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                {(isMid || isStart || isEnd) && lo !== hi && (
+                  <div style={{
+                    position: "absolute", top: 4, bottom: 4,
+                    left: isStart ? "50%" : 0,
+                    right: isEnd ? "50%" : 0,
+                    background: "var(--accent-soft)",
+                  }} />
+                )}
+                {(isStart || isEnd) && (
+                  <div style={{
+                    position: "absolute", top: 4, bottom: 4, left: 4, right: 4,
+                    background: "var(--accent)", borderRadius: 10,
+                  }} />
+                )}
+                <span style={{
+                  position: "relative", zIndex: 1,
+                  font: `${isStart || isEnd || isToday ? 600 : 400} 14px/1 var(--font-sans)`,
+                  color: isFuture ? "var(--muted-2)"
+                    : (isStart || isEnd) ? "#fff"
+                    : isMid ? "var(--accent-ink)"
+                    : isToday ? "var(--accent)"
+                    : "var(--ink-2)",
+                }}>{d}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{
+          marginTop: 8, padding: "8px 0 0", textAlign: "center",
+          font: "400 11.5px/1.3 var(--font-mono)", color: "var(--muted)", borderTop: "0.5px solid var(--line)",
+        }}>
+          {t("dash.daysSelected", { n: daysSelected })} · {fmtRange(ymd(new Date(lo)), ymd(new Date(hi)), lang)}
+        </div>
+      </div>
+
+      {/* primary apply action — reuses applyRange via onApply */}
+      <div style={{ padding: "4px 16px 16px" }}>
+        <button type="button" onClick={() => onApply(ymd(new Date(lo)), ymd(new Date(hi)))} style={{
           width: "100%", height: 46, borderRadius: 12, border: 0,
           background: "var(--accent)", color: "#fff", font: "600 14px/1 var(--font-sans)", cursor: "pointer",
         }}>{t("dash.apply")}</button>
