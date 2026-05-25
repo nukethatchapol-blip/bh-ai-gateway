@@ -2,8 +2,8 @@
 
 import React, { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar, Icon, RoleBadge, Segmented, Switch } from "./ui";
-import { PageHeader } from "./shell";
+import { Avatar, Icon, RoleBadge, Switch } from "./ui";
+import { NavBar, SectionHeader, GroupCard, MToggle, roundBtn } from "./mobile-ui";
 import { useLang } from "./lang-context";
 
 export function AccessScreen({ users, branches, affectedTables = [] }) {
@@ -15,12 +15,8 @@ export function AccessScreen({ users, branches, affectedTables = [] }) {
     users.forEach((u) => { out[u.id] = new Set(u.branchIds); });
     return out;
   });
-  const [filterRegion, setFilterRegion] = useState("All");
-  const [q, setQ] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  // Mobile pane switcher — desktop ignores this state via CSS.
-  const [mobilePane, setMobilePane] = useState("matrix"); // "users" | "matrix" | "policy"
   const { t } = useLang();
   const [tables, setTables] = useState(affectedTables);
 
@@ -41,11 +37,16 @@ export function AccessScreen({ users, branches, affectedTables = [] }) {
 
   const u = users.find((x) => x.id === selectedId) || users[0];
   const userScope = scope[u?.id] || new Set();
-  const regions = useMemo(() => ["All", ...Array.from(new Set(branches.map((b) => b.region)))], [branches]);
-  const filtered = branches.filter(
-    (b) => (filterRegion === "All" || b.region === filterRegion) &&
-      (!q || b.name.toLowerCase().includes(q.toLowerCase()) || b.id.toLowerCase().includes(q.toLowerCase()))
-  );
+
+  // Group branches by region, preserving first-seen order.
+  const regionGroups = useMemo(() => {
+    const map = new Map();
+    branches.forEach((b) => {
+      if (!map.has(b.region)) map.set(b.region, []);
+      map.get(b.region).push(b);
+    });
+    return Array.from(map.entries()); // [ [region, branches[]], ... ]
+  }, [branches]);
 
   function toggleBranch(bid) {
     setScope((s) => {
@@ -85,169 +86,134 @@ export function AccessScreen({ users, branches, affectedTables = [] }) {
 
   if (!u) {
     return (
-      <div className="pageframe">
-        <PageHeader title="Branch access" crumb="/ admin · access" />
-        <div className="page-body" style={{ padding: 40, color: "var(--muted)" }}>No users yet.</div>
-      </div>
+      <>
+        <NavBar title={t("nav.access")} leading={<Icon name="store" size={20} stroke={1.6} style={{ color: "var(--muted)" }} />} />
+        <div style={{ padding: "0 16px", color: "var(--muted)", font: "400 14px/1.4 var(--font-sans)" }}>
+          {t("access.noUsers")}
+        </div>
+      </>
     );
   }
 
-  return (
-    <div className="pageframe">
-      <PageHeader title="Branch access" crumb="/ admin · access · supabase rls">
-        <button className="btn btn-sm" type="button"><Icon name="download" size={13} /> Export policy</button>
-        <button className="btn btn-sm btn-primary" type="button" disabled={!dirty || saving} onClick={applyChanges}>
-          <Icon name="check" size={13} /> {saving ? "Saving…" : "Apply changes"}
-        </button>
-      </PageHeader>
+  const firstName = (u.full_name || u.email).split(" ")[0];
 
-      <div className="access-tabs" style={{ padding: "8px 14px 0", borderBottom: "0.5px solid var(--line)", background: "var(--bg)", gap: 6 }}>
-        {[
-          { id: "users",  label: "Users" },
-          { id: "matrix", label: "Branches" },
-          { id: "policy", label: "Policy" },
-        ].map((t) => {
-          const active = mobilePane === t.id;
+  return (
+    <>
+      {/* compact nav: back + title + Save */}
+      <div style={{ padding: "8px 16px 12px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <button type="button" onClick={() => router.back()} style={roundBtn()} aria-label="Back">
+          <Icon name="chevleft" size={15} stroke={2} />
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="mono" style={{ font: "400 11px/1 var(--font-mono)", color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em" }}>{t("nav.access")}</div>
+          <div style={{ font: "600 17px/1.2 var(--font-sans)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.full_name || u.email}</div>
+        </div>
+        <button type="button" onClick={applyChanges} disabled={!dirty || saving} style={{
+          ...roundBtn(), width: "auto", padding: "0 14px", borderRadius: 999,
+          background: dirty && !saving ? "var(--ink)" : "var(--bg-2)",
+          color: dirty && !saving ? "var(--panel)" : "var(--muted)",
+          borderColor: dirty && !saving ? "var(--ink)" : "var(--line)",
+          font: "600 12.5px/1 var(--font-sans)",
+          cursor: dirty && !saving ? "pointer" : "default",
+        }}>{saving ? t("access.saving") : t("common.save")}</button>
+      </div>
+
+      {/* user selector — horizontal pill list */}
+      <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "0 16px 12px", flexShrink: 0 }}>
+        {users.map((u2) => {
+          const n = scope[u2.id]?.size || 0;
+          const on = u2.id === selectedId;
           return (
-            <button key={t.id} type="button" onClick={() => setMobilePane(t.id)}
-              style={{
-                appearance: "none", border: 0, background: "transparent",
-                padding: "10px 4px", cursor: "pointer",
-                font: `${active ? 600 : 500} 13px/1 var(--font-sans)`,
-                color: active ? "var(--ink)" : "var(--muted)",
-                borderBottom: `2px solid ${active ? "var(--ink)" : "transparent"}`,
-                marginBottom: -1,
-              }}>{t.label}</button>
+            <button key={u2.id} type="button" onClick={() => setSelectedId(u2.id)} style={{
+              flexShrink: 0, display: "flex", alignItems: "center", gap: 8,
+              padding: "6px 12px 6px 6px", borderRadius: 999, cursor: "pointer",
+              background: on ? "var(--panel)" : "transparent",
+              border: `0.5px solid ${on ? "var(--line)" : "transparent"}`,
+              boxShadow: on ? "var(--shadow-sm)" : "none",
+            }}>
+              <Avatar name={u2.full_name || u2.email} size={26} />
+              <div style={{ textAlign: "left" }}>
+                <div style={{ font: `${on ? 600 : 500} 12.5px/1.1 var(--font-sans)`, color: on ? "var(--ink)" : "var(--ink-2)", whiteSpace: "nowrap" }}>
+                  {(u2.full_name || u2.email).split(" ")[0]}
+                </div>
+                <div className="mono" style={{ font: "400 9.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 2 }}>
+                  {n === branches.length ? "all" : n} {n === 1 ? "branch" : "branches"}
+                </div>
+              </div>
+            </button>
           );
         })}
       </div>
 
-      <div className="access-grid" style={{ flex: 1, display: "grid", gridTemplateColumns: "280px 1fr 320px", minHeight: 0 }}>
-        <div className={`access-pane ${mobilePane !== "users" ? "hidden-mobile" : ""}`} style={{ borderRight: "0.5px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <div style={{ padding: "12px 14px", borderBottom: "0.5px solid var(--line)" }}>
-            <div style={{ position: "relative" }}>
-              <Icon name="search" size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-              <input className="input" placeholder="Search users…" style={{ paddingLeft: 32 }} />
+      {/* selected-user summary card */}
+      <GroupCard style={{ margin: "0 16px 14px", padding: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <Avatar name={u.full_name || u.email} size={44} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ font: "600 14.5px/1.2 var(--font-sans)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.full_name || u.email}</span>
+              <RoleBadge role={u.role} />
             </div>
+            <div className="mono" style={{ font: "400 11.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4 }}>{u.email}</div>
           </div>
-          <div className="scroll-y" style={{ flex: 1, padding: 6 }}>
-            {users.map((u2) => {
-              const n = scope[u2.id]?.size || 0;
-              return (
-                <button key={u2.id} onClick={() => setSelectedId(u2.id)} type="button"
-                  style={{
-                    width: "100%", display: "flex", alignItems: "center", gap: 10,
-                    padding: "8px 10px", borderRadius: 8, border: 0,
-                    background: u2.id === selectedId ? "var(--bg-2)" : "transparent",
-                    cursor: "pointer", textAlign: "left", marginBottom: 2,
-                  }}>
-                  <Avatar name={u2.full_name || u2.email} size={28} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ font: "500 13px/1.2 var(--font-sans)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u2.full_name || u2.email}</div>
-                    <div className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}>
-                      <RoleBadge role={u2.role} /> <span>· {n === branches.length ? "all" : n} branch{n !== 1 ? "es" : ""}</span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+          <div style={{ textAlign: "right" }}>
+            <div className="tnum" style={{ font: "600 22px/1 var(--font-mono)" }}>
+              {userScope.size}<span style={{ color: "var(--muted)", font: "400 13px/1 var(--font-sans)" }}>/{branches.length}</span>
+            </div>
+            <div className="mono" style={{ font: "400 10px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4, textTransform: "uppercase", letterSpacing: ".06em" }}>{t("access.branches")}</div>
           </div>
         </div>
+      </GroupCard>
 
-        <div className={`access-pane ${mobilePane !== "matrix" ? "hidden-mobile" : ""}`} style={{ display: "flex", flexDirection: "column", minHeight: 0, background: "var(--bg)" }}>
-          <div style={{ padding: "16px 24px 12px", borderBottom: "0.5px solid var(--line)", background: "var(--bg)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <Avatar name={u.full_name || u.email} size={36} />
-              <div style={{ flex: 1 }}>
-                <div style={{ font: "600 15px/1.2 var(--font-sans)" }}>{u.full_name || u.email}</div>
-                <div className="mono" style={{ font: "400 11.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4 }}>{u.email}</div>
+      {/* region-grouped branch toggle list */}
+      {regionGroups.map(([region, regionBranches]) => {
+        const ids = regionBranches.map((b) => b.id);
+        const allOn = ids.every((id) => userScope.has(id));
+        return (
+          <React.Fragment key={region}>
+            <div style={{ padding: "10px 20px 8px", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+              <div className="mono" style={{ font: "500 11px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".08em", textTransform: "uppercase" }}>
+                {region} · {regionBranches.length}
               </div>
-              <div className="tnum" style={{ textAlign: "right" }}>
-                <div style={{ font: "500 22px/1 var(--font-sans)" }}>
-                  {userScope.size}<span className="muted" style={{ font: "400 14px/1 var(--font-sans)" }}> / {branches.length}</span>
-                </div>
-                <div className="mono muted" style={{ font: "400 10.5px/1 var(--font-mono)", marginTop: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>branches authorized</div>
-              </div>
+              <button type="button" onClick={() => setAll(ids, !allOn)} style={{
+                border: 0, background: "transparent", color: "var(--accent-ink)",
+                font: "500 12px/1 var(--font-sans)", cursor: "pointer",
+              }}>{allOn ? t("access.revokeAll") : t("access.toggleAll")}</button>
             </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14 }}>
-              <div style={{ position: "relative", flex: 1, maxWidth: 280 }}>
-                <Icon name="search" size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-                <input className="input" placeholder="Filter branches" value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 32, height: 32 }} />
-              </div>
-              <Segmented value={filterRegion} onChange={setFilterRegion} options={regions} />
-              <div style={{ flex: 1 }} />
-              <button className="btn btn-sm btn-ghost" type="button" onClick={() => setAll(filtered.map((b) => b.id), true)}>Grant filtered</button>
-              <button className="btn btn-sm btn-ghost" type="button" onClick={() => setAll(filtered.map((b) => b.id), false)}>Revoke filtered</button>
-            </div>
-          </div>
-
-          <div className="scroll-y" style={{ flex: 1, padding: "16px 24px 32px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
-              {filtered.map((b) => {
+            <GroupCard>
+              {regionBranches.map((b, i) => {
                 const on = userScope.has(b.id);
                 return (
-                  <button key={b.id} onClick={() => toggleBranch(b.id)} type="button"
-                    style={{
-                      display: "flex", alignItems: "flex-start", gap: 10,
-                      padding: "12px 12px", border: "0.5px solid",
-                      borderColor: on ? "transparent" : "var(--line)",
-                      borderRadius: 10, cursor: "pointer", textAlign: "left",
-                      background: on ? "var(--accent-soft)" : "var(--panel)",
-                    }}>
-                    <div style={{
-                      width: 18, height: 18, borderRadius: 5, flexShrink: 0, marginTop: 1,
-                      background: on ? "var(--accent)" : "transparent",
-                      border: on ? "1px solid var(--accent)" : "1.5px solid var(--line)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      color: "#fff",
-                    }}>
-                      {on && <Icon name="check" size={11} stroke={2} />}
-                    </div>
+                  <div key={b.id} style={{
+                    display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+                    borderBottom: i < regionBranches.length - 1 ? "0.5px solid var(--line-2)" : "none",
+                  }}>
+                    <Icon name="store" size={15} stroke={1.5} style={{ color: "var(--muted)" }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ font: "500 13px/1.2 var(--font-sans)", color: on ? "var(--accent-ink)" : "var(--ink)" }}>{b.name}</div>
-                      <div className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4 }}>{b.id} · {b.region}</div>
+                      <div style={{ font: "500 14px/1.2 var(--font-sans)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</div>
+                      <div className="mono" style={{ font: "400 11px/1 var(--font-mono)", color: "var(--muted)", marginTop: 3 }}>{b.id}</div>
                     </div>
-                  </button>
+                    <MToggle on={on} onChange={() => toggleBranch(b.id)} />
+                  </div>
                 );
               })}
-            </div>
-          </div>
-        </div>
+            </GroupCard>
+          </React.Fragment>
+        );
+      })}
 
-        <div className={`access-pane ${mobilePane !== "policy" ? "hidden-mobile" : ""}`} style={{ borderLeft: "0.5px solid var(--line)", background: "var(--panel-2)",
-          display: "flex", flexDirection: "column", minHeight: 0 }}>
-          <div style={{ padding: "14px 18px 8px" }}>
-            <div className="eyebrow">Resulting policy</div>
-            <p className="muted" style={{ font: "400 11.5px/1.5 var(--font-sans)", margin: "8px 0 0" }}>
-              Live Supabase RLS that will be applied when you click <b style={{ color: "var(--ink-2)" }}>Apply changes</b>.
-            </p>
-          </div>
+      {/* affected tables config */}
+      <SectionHeader>{t("access.affected.title")}</SectionHeader>
+      <AffectedTablesConfig tables={tables} onChange={saveAffectedTable} />
 
-          <div className="scroll-y" style={{ flex: 1, padding: "8px 18px 18px" }}>
-            <div className="mono" style={{
-              padding: "12px 14px", borderRadius: 8,
-              background: "var(--bg)", border: "0.5px solid var(--line)",
-              font: "400 11.5px/1.65 var(--font-mono)", color: "var(--ink-2)",
-              whiteSpace: "pre-wrap", wordBreak: "break-all",
-            }}>
-{`-- policy: read_branch_data
--- enforced by: public.authorized_branches(${u.id})
--- branches:
-`}<span style={{ color: "var(--accent-ink)" }}>{Array.from(userScope).map((s) => `  ${s}`).join("\n") || "  (none — user blocked from all branch data)"}</span>
-            </div>
-
-            <AffectedTablesConfig tables={tables} onChange={saveAffectedTable} />
-
-            <div className="eyebrow" style={{ marginTop: 18, marginBottom: 8 }}>Default deny</div>
-            <p className="muted" style={{ font: "400 12px/1.55 var(--font-sans)", margin: 0 }}>
-              Any branch not in the list above is invisible to {(u.full_name || u.email).split(" ")[0]}.
-              Chat queries silently filter; explicit references return a blocked response.
-            </p>
-          </div>
-        </div>
+      {/* default deny note */}
+      <SectionHeader>{t("access.defaultDeny")}</SectionHeader>
+      <div style={{ padding: "0 20px", font: "400 12.5px/1.55 var(--font-sans)", color: "var(--muted)" }}>
+        {t("access.defaultDeny.body", { name: firstName })}
       </div>
-    </div>
+
+      <div style={{ height: 16 }} />
+    </>
   );
 }
 
@@ -267,54 +233,63 @@ function AffectedTablesConfig({ tables, onChange }) {
   const enabledCount = tables.filter((r) => r.enabled).length;
 
   return (
-    <>
-      <div className="eyebrow" style={{ marginTop: 18, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>{t("access.affected.title")}</span>
-        <span className="mono tnum" style={{ color: "var(--accent-ink)", fontSize: 10 }}>
-          {enabledCount} / {tables.length}
-        </span>
-      </div>
-      <p className="muted" style={{ font: "400 11.5px/1.5 var(--font-sans)", margin: "0 0 10px" }}>
+    <div style={{ padding: "0 16px" }}>
+      <p className="muted" style={{ font: "400 12px/1.5 var(--font-sans)", margin: "0 4px 10px" }}>
         {t("access.affected.hint")}
       </p>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1 }}>
-          <Icon name="search" size={11} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+          <Icon name="search" size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
           <input
-            className="input"
             placeholder={t("access.affected.search")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            style={{ paddingLeft: 26, height: 28, font: "400 12px/1 var(--font-sans)" }}
+            style={{
+              width: "100%", height: 34, borderRadius: 10, border: "0.5px solid var(--line)",
+              background: "var(--panel)", color: "var(--ink)", paddingLeft: 32, paddingRight: 10,
+              font: "400 13px/1 var(--font-sans)",
+            }}
           />
         </div>
         <button
           type="button"
-          className="btn btn-sm"
           onClick={() => setShowOnlyEnabled((v) => !v)}
           title={t("access.affected.col.enabled")}
-          style={{ padding: "0 8px", height: 28, background: showOnlyEnabled ? "var(--accent-soft)" : "var(--panel)", color: showOnlyEnabled ? "var(--accent-ink)" : "var(--muted)" }}
+          style={{
+            height: 34, padding: "0 12px", borderRadius: 10, cursor: "pointer",
+            border: "0.5px solid var(--line)",
+            background: showOnlyEnabled ? "var(--accent-soft)" : "var(--panel)",
+            color: showOnlyEnabled ? "var(--accent-ink)" : "var(--muted)",
+            display: "flex", alignItems: "center", gap: 6,
+            font: "500 11px/1 var(--font-mono)",
+          }}
         >
-          <Icon name="check" size={11} />
+          <Icon name="check" size={12} />
+          <span className="mono tnum">{enabledCount}/{tables.length}</span>
         </button>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 340, overflowY: "auto" }}>
+      <GroupCard style={{ margin: 0 }}>
         {filtered.length === 0 && (
-          <div className="muted" style={{ font: "400 12px/1.4 var(--font-sans)", padding: 12, textAlign: "center" }}>
+          <div className="muted" style={{ font: "400 12.5px/1.4 var(--font-sans)", padding: 16, textAlign: "center" }}>
             {t("access.affected.empty")}
           </div>
         )}
-        {filtered.map((row) => (
-          <AffectedTableRow key={`${row.schema_name}.${row.table_name}`} row={row} onChange={onChange} />
+        {filtered.map((row, i) => (
+          <AffectedTableRow
+            key={`${row.schema_name}.${row.table_name}`}
+            row={row}
+            onChange={onChange}
+            last={i === filtered.length - 1}
+          />
         ))}
-      </div>
-    </>
+      </GroupCard>
+    </div>
   );
 }
 
-function AffectedTableRow({ row, onChange }) {
+function AffectedTableRow({ row, onChange, last }) {
   const branchOptions = [];
   if (row.has_branch_ref)  branchOptions.push("branch_ref");
   if (row.has_branch_code) branchOptions.push("branch_code");
@@ -323,23 +298,22 @@ function AffectedTableRow({ row, onChange }) {
 
   return (
     <div style={{
-      display: "grid", gridTemplateColumns: "1fr auto auto",
-      alignItems: "center", gap: 8, padding: "8px 10px",
-      borderRadius: 6, background: "var(--bg)", border: "0.5px solid var(--line)",
+      display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+      borderBottom: last ? "none" : "0.5px solid var(--line-2)",
     }}>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div className="mono" style={{
-          font: "500 12px/1.2 var(--font-mono)",
+          font: "500 12.5px/1.2 var(--font-mono)",
           color: row.enabled ? "var(--ink)" : "var(--ink-2)",
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {row.schema_name}.{row.table_name}
         </div>
-        <div className="mono" style={{ font: "400 10px/1 var(--font-mono)", color: "var(--muted)", marginTop: 3 }}>
+        <div className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
           <span className="tnum">{Number(row.row_estimate || 0).toLocaleString()}</span> rows
           {hasAny && row.enabled && (
             <>
-              <span style={{ margin: "0 6px", color: "var(--line)" }}>·</span>
+              <span style={{ color: "var(--line)" }}>·</span>
               <select
                 value={row.branch_column || ""}
                 onChange={(e) => onChange(row, { branch_column: e.target.value || null })}
@@ -347,8 +321,8 @@ function AffectedTableRow({ row, onChange }) {
                 style={{
                   appearance: "none", border: "0.5px solid var(--line)",
                   background: "var(--panel)", color: "var(--ink-2)",
-                  font: "500 10px/1 var(--font-mono)", padding: "2px 4px",
-                  borderRadius: 3, cursor: "pointer",
+                  font: "500 10.5px/1 var(--font-mono)", padding: "3px 6px",
+                  borderRadius: 5, cursor: "pointer",
                 }}
               >
                 <option value="">—</option>
@@ -358,7 +332,7 @@ function AffectedTableRow({ row, onChange }) {
           )}
         </div>
       </div>
-      <Switch value={!!row.enabled} onChange={(v) => onChange(row, { enabled: v })} size={16} />
+      <Switch value={!!row.enabled} onChange={(v) => onChange(row, { enabled: v })} size={18} />
     </div>
   );
 }
