@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { MODELS, modelById } from "@/lib/models";
 import { parseMarkdown } from "@/lib/markdown";
 import {
   Avatar, BarMini, Field, Icon, Modal, Segmented, prettySize,
 } from "./ui";
-import { PageHeader } from "./shell";
+import { Sheet, roundBtn } from "./mobile-ui";
+import { useLang } from "./lang-context";
 
 export function ChatScreen({ profile, skills, branches, authorizedIds, initialMessages = [], initialChatId = null }) {
+  const { t } = useLang();
   const [skillId, setSkillId] = useState(skills[0]?.id || "data-analyst");
   const [modelId, setModelId] = useState("claude-4.5-s");
   const [branchScope, setBranchScope] = useState("ALL");
@@ -16,9 +19,8 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
   const [attached, setAttached] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [messages, setMessages] = useState(initialMessages);
-  const [showSkillPick, setShowSkillPick] = useState(false);
-  const [showModelPick, setShowModelPick] = useState(false);
   const [showBranchPick, setShowBranchPick] = useState(false);
+  const [sheet, setSheet] = useState(null); // null | "skill" | "model"
   const [pending, setPending] = useState(false);
   const [chatId, setChatId] = useState(initialChatId);
   const [shareCopied, setShareCopied] = useState(false);
@@ -131,83 +133,100 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
     setAttached((a) => [...a, ...files.map((f) => ({ name: f.name, size: f.size, type: f.type || "file" }))]);
   }
 
+  const sendDisabled = !(draft.trim() || attached.length);
+
   return (
-    <div className="pageframe">
-      <PageHeader title="New chat" crumb="/ chat">
-        <BranchScopePill scope={branchScope} count={authorizedIds.length}
-          branch={scopedBranch} onOpen={() => setShowBranchPick(true)} />
-        <button
-          className="btn btn-sm"
-          type="button"
-          onClick={() => setShowThinking((v) => !v)}
+    <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}
+      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+      onDragLeave={() => setDragging(false)}
+      onDrop={onDrop}>
+
+      {/* compact top bar */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 15,
+        padding: "8px 14px 10px", display: "flex", alignItems: "center", gap: 10,
+        borderBottom: "0.5px solid var(--line-2)", flexShrink: 0,
+        background: "var(--composer-bg)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+      }}>
+        <Link href="/chat" aria-label="Back to chats" style={{ ...roundBtn(), textDecoration: "none" }}>
+          <Icon name="chevleft" size={15} stroke={2} />
+        </Link>
+        <div style={{ flex: 1, minWidth: 0, textAlign: "center" }}>
+          <div style={{
+            font: "600 14px/1.2 var(--font-sans)", color: "var(--ink)",
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          }}>{skill?.name || "New chat"}</div>
+          <button type="button" onClick={() => setShowBranchPick(true)} style={{
+            appearance: "none", border: 0, cursor: "pointer",
+            display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4,
+            padding: "2px 8px", borderRadius: 999, background: "var(--accent-soft)", color: "var(--accent-ink)",
+            font: "500 10.5px/1 var(--font-mono)",
+          }}>
+            <Icon name="store" size={10} stroke={1.6} />
+            {scopedBranch ? `${scopedBranch.id} · ${scopedBranch.name}` : `All scope (${authorizedIds.length})`}
+            <Icon name="chevdown" size={9} />
+          </button>
+        </div>
+        <button type="button" onClick={() => setShowThinking((v) => !v)}
           title={showThinking ? "Hide all thinking" : "Show all thinking"}
           style={{
+            ...roundBtn(),
             background: showThinking ? "var(--accent-soft)" : "var(--panel)",
             color: showThinking ? "var(--accent-ink)" : "var(--ink)",
             borderColor: showThinking ? "transparent" : "var(--line)",
-          }}
-        >
-          <Icon name="sparkles" size={13} style={{ color: showThinking ? "var(--accent-ink)" : "var(--muted)" }} />
-          {showThinking ? "Hide thinking" : "Show thinking"}
-        </button>
-        <button className="btn btn-sm btn-ghost" type="button"
-          onClick={shareTranscript} disabled={messages.length === 0}
-          title="Copy the conversation transcript to your clipboard">
-          <Icon name={shareCopied ? "check" : "upload"} size={13} />
-          {shareCopied ? "Copied" : "Share"}
-        </button>
-        <button className="btn btn-sm btn-primary" type="button"
-          onClick={() => { setMessages([]); setChatId(null); }}>
-          <Icon name="plus" size={13} /> New chat
-        </button>
-      </PageHeader>
-
-      <div className="page-body scroll-y" style={{ position: "relative" }}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}>
-
-        {dragging && (
-          <div style={{
-            position: "absolute", inset: 16, zIndex: 50,
-            background: "var(--accent-soft)", border: "2px dashed var(--accent)",
-            borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center",
-            color: "var(--accent-ink)", font: "500 18px/1.3 var(--font-sans)",
-            pointerEvents: "none",
           }}>
-            <div style={{ textAlign: "center" }}>
-              <Icon name="paperclip" size={32} stroke={1.25} />
-              <div style={{ marginTop: 8 }}>Drop files to attach</div>
-              <div className="mono" style={{ font: "400 12px/1 var(--font-mono)", color: "var(--accent-ink)", opacity: 0.7, marginTop: 4 }}>PDF · CSV · XLSX · PNG · JPG · TXT</div>
-            </div>
-          </div>
-        )}
-
-        <div className="chat-thread" style={{ maxWidth: 760, margin: "0 auto", padding: "24px 32px 200px" }}>
-          {messages.length === 0 && (
-            <EmptyChat skill={skill} scope={scopedBranch} />
-          )}
-          {messages.map((m, i) => (
-            <Message
-              key={m.id}
-              m={m}
-              skill={skill}
-              user={profile}
-              streaming={pending && i === messages.length - 1 && m.role === "assistant"}
-              showThinking={showThinking}
-            />
-          ))}
-        </div>
+          <Icon name="sparkles" size={14} style={{ color: showThinking ? "var(--accent-ink)" : "var(--muted)" }} />
+        </button>
+        <button type="button" onClick={shareTranscript} disabled={messages.length === 0}
+          title="Copy the conversation transcript to your clipboard"
+          style={{ ...roundBtn(), opacity: messages.length === 0 ? 0.4 : 1 }}>
+          <Icon name={shareCopied ? "check" : "upload"} size={14} />
+        </button>
       </div>
 
-      <div className="chat-composer-wrap" style={{
-        position: "absolute", left: 0, right: 0, bottom: 0,
-        padding: "0 32px 24px", pointerEvents: "none",
+      {dragging && (
+        <div style={{
+          position: "absolute", inset: 16, zIndex: 50,
+          background: "var(--accent-soft)", border: "2px dashed var(--accent)",
+          borderRadius: 16, display: "flex", alignItems: "center", justifyContent: "center",
+          color: "var(--accent-ink)", font: "500 16px/1.3 var(--font-sans)",
+          pointerEvents: "none",
+        }}>
+          <div style={{ textAlign: "center" }}>
+            <Icon name="paperclip" size={32} stroke={1.25} />
+            <div style={{ marginTop: 8 }}>Drop files to attach</div>
+            <div className="mono" style={{ font: "400 12px/1 var(--font-mono)", color: "var(--accent-ink)", opacity: 0.7, marginTop: 4 }}>PDF · CSV · XLSX · PNG · JPG · TXT</div>
+          </div>
+        </div>
+      )}
+
+      {/* messages */}
+      <div style={{ flex: 1, padding: "12px 16px 24px" }}>
+        {messages.length === 0 && (
+          <EmptyChat skill={skill} scope={scopedBranch} />
+        )}
+        {messages.map((m, i) => (
+          <Message
+            key={m.id}
+            m={m}
+            skill={skill}
+            user={profile}
+            streaming={pending && i === messages.length - 1 && m.role === "assistant"}
+            showThinking={showThinking}
+          />
+        ))}
+      </div>
+
+      {/* sticky composer */}
+      <div style={{
+        position: "sticky", bottom: 0, zIndex: 20,
+        padding: "10px 12px calc(var(--safe-bottom) + 6px)",
+        background: "var(--composer-bg)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+        borderTop: "0.5px solid var(--line)",
       }}>
         <div ref={composerRef} style={{
-          maxWidth: 760, margin: "0 auto", pointerEvents: "auto",
           background: "var(--panel)", border: "0.5px solid var(--line)",
-          borderRadius: 16, boxShadow: "var(--shadow-lg)",
+          borderRadius: 22, boxShadow: "0 4px 16px rgba(0,0,0,.04)",
         }}>
           {attached.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px 0" }}>
@@ -219,10 +238,10 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
                   font: "500 12px/1 var(--font-sans)",
                 }}>
                   <Icon name="doc" size={13} style={{ color: "var(--muted)" }} />
-                  <span style={{ maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                  <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
                   <span className="mono muted" style={{ font: "400 10.5px/1 var(--font-mono)" }}>{prettySize(f.size)}</span>
                   <button onClick={() => setAttached((a) => a.filter((_, j) => j !== i))} type="button"
-                    className="btn btn-ghost btn-icon" style={{ width: 18, height: 18, padding: 0 }}>
+                    style={{ appearance: "none", border: 0, background: "transparent", color: "var(--muted)", cursor: "pointer", display: "flex", padding: 0 }}>
                     <Icon name="close" size={10} />
                   </button>
                 </div>
@@ -243,12 +262,12 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
             rows={2}
             style={{
               width: "100%", border: 0, outline: 0, background: "transparent",
-              padding: "16px 16px 8px", color: "var(--ink)", resize: "none",
-              font: "400 14.5px/1.55 var(--font-sans)", fontFamily: "var(--font-sans)",
+              padding: "14px 16px 6px", color: "var(--ink)", resize: "none",
+              font: "400 14.5px/1.5 var(--font-sans)", fontFamily: "var(--font-sans)",
             }}
           />
 
-          <div className="chat-toolbar" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px 10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 6px 6px 10px" }}>
             <FileAttachButton onPick={(files) =>
               setAttached((a) => [
                 ...a,
@@ -256,46 +275,43 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
               ])
             } />
 
-            <ChatPicker open={showSkillPick} onOpenChange={setShowSkillPick}
-              trigger={
-                <button className="btn btn-sm" type="button" onClick={() => setShowSkillPick((v) => !v)}>
-                  <Icon name="sparkles" size={13} style={{ color: "var(--accent)" }} />
-                  <span className="chat-picker-label">{skill?.name || "Skill"}</span>
-                  <Icon name="chevdown" size={11} style={{ color: "var(--muted)" }} />
-                </button>
-              }>
-              <SkillList skills={skills} value={skillId} onChange={(v) => { setSkillId(v); setShowSkillPick(false); }} />
-            </ChatPicker>
+            <button type="button" style={composerPill()} onClick={() => setSheet("skill")}>
+              <Icon name="sparkles" size={12} style={{ color: "var(--accent)" }} />
+              <span style={{ color: "var(--accent-ink)" }}>{skill?.name || "Skill"}</span>
+            </button>
 
-            <ChatPicker open={showModelPick} onOpenChange={setShowModelPick}
-              trigger={
-                <button className="btn btn-sm" type="button" onClick={() => setShowModelPick((v) => !v)}>
-                  <span className="mono" style={{ font: "500 11px/1 var(--font-mono)", color: "var(--muted)" }}>{(model.provider || "").slice(0, 4).toUpperCase()}</span>
-                  <span className="chat-picker-label">{model.label}</span>
-                  <Icon name="chevdown" size={11} style={{ color: "var(--muted)" }} />
-                </button>
-              }>
-              <ModelList value={modelId} onChange={(v) => { setModelId(v); setShowModelPick(false); }} />
-            </ChatPicker>
+            <button type="button" style={composerPill()} onClick={() => setSheet("model")}>
+              <span className="mono" style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)" }}>{(model.provider || "").slice(0, 4).toUpperCase()}</span>
+              <span>{model.label}</span>
+              <Icon name="chevdown" size={10} style={{ color: "var(--muted)" }} />
+            </button>
 
             <div style={{ flex: 1 }} />
-            <span className="mono muted chat-kbd-hint" style={{ font: "400 11px/1 var(--font-mono)", marginRight: 4 }}>
-              <span className="kbd">⌘</span> <span className="kbd">↵</span>
-            </span>
-            <button onClick={send} type="button" className="btn btn-icon btn-primary btn-sm"
-              style={{ width: 30, height: 30, borderRadius: 8, opacity: draft.trim() || attached.length ? 1 : 0.4 }}>
-              <Icon name="send" size={13} />
+            <button onClick={send} type="button" style={{
+              width: 32, height: 32, borderRadius: 999, border: 0, cursor: "pointer",
+              background: "var(--ink)", color: "var(--bg)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              opacity: sendDisabled ? 0.4 : 1,
+            }}>
+              <Icon name="send" size={14} />
             </button>
           </div>
         </div>
-        <div style={{ textAlign: "center", marginTop: 8 }}>
-          <span className="mono muted" style={{ font: "400 11px/1 var(--font-mono)" }}>
-            Your scope: <span style={{ color: "var(--ink-2)" }}>{scopedBranch ? scopedBranch.name : `${authorizedIds.length} branches`}</span>
-            <span style={{ margin: "0 8px", color: "var(--line)" }}>·</span>
-            Row-level policy enforced on every query
-          </span>
-        </div>
       </div>
+
+      {sheet === "skill" && (
+        <Sheet title={skill?.name || "Skill"} onClose={() => setSheet(null)}>
+          <SkillList skills={skills} value={skillId}
+            onChange={(v) => { setSkillId(v); setSheet(null); }} />
+        </Sheet>
+      )}
+
+      {sheet === "model" && (
+        <Sheet title="Model" onClose={() => setSheet(null)}>
+          <ModelList value={modelId}
+            onChange={(v) => { setModelId(v); setSheet(null); }} />
+        </Sheet>
+      )}
 
       {showBranchPick && (
         <BranchPickerModal
@@ -308,6 +324,14 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
       )}
     </div>
   );
+}
+
+function composerPill() {
+  return {
+    display: "inline-flex", alignItems: "center", gap: 5, height: 28, padding: "0 10px",
+    borderRadius: 999, border: 0, background: "transparent",
+    color: "var(--ink-2)", font: "500 12px/1 var(--font-sans)", cursor: "pointer",
+  };
 }
 
 function FileAttachButton({ onPick }) {
