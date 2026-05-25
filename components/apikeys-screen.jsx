@@ -2,16 +2,22 @@
 
 import React, { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Icon, Field, Modal, Segmented } from "./ui";
-import { PageHeader } from "./shell";
-import { MODELS, PROVIDER_LABEL, PROVIDER_PREFIX } from "@/lib/models";
+import { Icon, Field, Modal } from "./ui";
+import { NavBar, SectionHeader, GroupCard, roundBtn } from "./mobile-ui";
+import { useLang } from "./lang-context";
+import { PROVIDER_LABEL, PROVIDER_PREFIX } from "@/lib/models";
 
 const PROVIDERS = ["openai", "anthropic", "google", "mistral", "groq", "openrouter"];
+
+// Static gateway-credit chrome (no real per-user gateway credit ledger exists yet).
+const GATEWAY_CREDIT_USED = 182;
+const GATEWAY_CREDIT_CAP = 250;
 
 export function ApiKeysScreen({ keys }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [editing, setEditing] = useState(null);
+  const { t } = useLang();
 
   const byProvider = useMemo(() => {
     const map = {};
@@ -21,6 +27,7 @@ export function ApiKeysScreen({ keys }) {
 
   const monthlySpend = keys.reduce((a, k) => a + Number(k.spend_usd || 0), 0);
   const configured = keys.filter((k) => k.active).length;
+  const firstUnconfigured = PROVIDERS.find((p) => !byProvider[p]);
 
   async function saveKey(provider, { key, monthly_cap_usd }) {
     const r = await fetch("/api/apikeys", {
@@ -39,86 +46,81 @@ export function ApiKeysScreen({ keys }) {
     startTransition(() => router.refresh());
   }
 
+  const creditPct = Math.min(100, (GATEWAY_CREDIT_USED / GATEWAY_CREDIT_CAP) * 100);
+
   return (
-    <div className="pageframe">
-      <PageHeader title="API Keys" crumb="/ settings · api">
-        <span className="badge">
-          <span className="dot" style={{ color: "var(--accent)" }} /> {configured} configured
-        </span>
-      </PageHeader>
+    <>
+      <NavBar
+        title={t("nav.apikeys")}
+        sub={t("apikeys.sub")}
+        leading={<Icon name="key" size={20} stroke={1.6} style={{ color: "var(--muted)" }} />}
+      />
 
-      <div className="page-body scroll-y">
-        <div style={{ padding: "20px 28px 40px", maxWidth: 920, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
-          <div className="card apikeys-summary" style={{ padding: 20, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24 }}>
-            <SummaryStat label="Monthly spend (BYO)" value={`$${monthlySpend.toFixed(2)}`} sub="across your own keys" />
-            <SummaryStat label="Gateway credits" value="$182.40" sub="of $250 monthly allowance" pct={73} />
-            <SummaryStat label="Providers" value={`${configured}/${PROVIDERS.length}`} sub="configured" />
-          </div>
-
-          <div style={{
-            padding: "12px 14px", border: "0.5px solid var(--line)", borderRadius: 10,
-            background: "var(--panel-2)", display: "flex", gap: 12, alignItems: "flex-start",
-          }}>
-            <Icon name="key" size={14} stroke={1.5} style={{ color: "var(--accent)", marginTop: 2 }} />
-            <div style={{ font: "400 12.5px/1.6 var(--font-sans)", color: "var(--ink-2)" }}>
-              <b>Bring your own key</b> for isolated billing or enterprise contracts. Otherwise the gateway proxies to the team's pooled credentials — usage still counts against your monthly quota. Keys are AES-256 encrypted at rest and never visible to other users or in audit logs.
+      {/* summary card */}
+      <GroupCard style={{ margin: "0 16px 14px", padding: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <div className="mono" style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>
+              {t("apikeys.monthlySpend")}
+            </div>
+            <div className="tnum" style={{ font: "600 22px/1 var(--font-sans)", marginTop: 8, letterSpacing: "-0.01em" }}>${monthlySpend.toFixed(2)}</div>
+            <div style={{ font: "400 11.5px/1.3 var(--font-sans)", color: "var(--muted)", marginTop: 5 }}>
+              {t("apikeys.keysConfigured", { n: configured })}
             </div>
           </div>
-
-          <div className="card" style={{ overflow: "hidden" }}>
-            <div style={{ padding: "14px 18px", borderBottom: "0.5px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 className="h-3">Providers</h3>
+          <div>
+            <div className="mono" style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>
+              {t("apikeys.gatewayCredits")}
             </div>
-            {PROVIDERS.map((p, i) => (
-              <ProviderRow
-                key={p}
-                provider={p}
-                row={byProvider[p]}
-                last={i === PROVIDERS.length - 1}
-                onEdit={() => setEditing(p)}
-                onRemove={() => revoke(p)}
-              />
-            ))}
-          </div>
-
-          <div className="card" style={{ padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <div>
-                <h3 className="h-2">Model routing</h3>
-                <p className="muted" style={{ font: "400 12.5px/1.5 var(--font-sans)", margin: "4px 0 0" }}>
-                  For each model, the gateway uses your key when configured, else the team key.
-                </p>
-              </div>
+            <div className="tnum" style={{ font: "600 22px/1 var(--font-sans)", marginTop: 8, letterSpacing: "-0.01em" }}>
+              ${GATEWAY_CREDIT_USED}<span style={{ color: "var(--muted)", font: "400 14px/1 var(--font-sans)" }}>/{GATEWAY_CREDIT_CAP}</span>
             </div>
-            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-              {MODELS.map((m) => {
-                const canBYO = !!byProvider[m.provider];
-                return (
-                  <div key={m.id} style={{
-                    display: "flex", alignItems: "center", gap: 12,
-                    padding: "10px 12px", borderRadius: 8, border: "0.5px solid var(--line)",
-                    background: "var(--panel-2)",
-                  }}>
-                    <span className="mono" style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase", width: 80 }}>
-                      {PROVIDER_LABEL[m.provider]}
-                    </span>
-                    <span style={{ font: "500 13px/1 var(--font-sans)", flex: 1 }}>{m.label}</span>
-                    <span className="mono tnum muted" style={{ font: "400 11px/1 var(--font-mono)" }}>{m.cost} · {m.ctx}</span>
-                    <Segmented
-                      value={canBYO ? "byo" : "gateway"}
-                      onChange={() => {}}
-                      options={[
-                        { value: "byo", label: canBYO ? "My key" : "—" },
-                        { value: "gateway", label: "Gateway" },
-                      ]}
-                    />
-                  </div>
-                );
-              })}
+            <div style={{ height: 4, background: "var(--bg-2)", borderRadius: 2, overflow: "hidden", marginTop: 8 }}>
+              <div style={{ width: `${creditPct}%`, height: "100%", background: "var(--accent)" }} />
             </div>
           </div>
         </div>
+      </GroupCard>
+
+      {/* providers list */}
+      <SectionHeader>{t("apikeys.providers")}</SectionHeader>
+      <GroupCard>
+        {PROVIDERS.map((p, i) => (
+          <ProviderRow
+            key={p}
+            provider={p}
+            row={byProvider[p]}
+            last={i === PROVIDERS.length - 1}
+            onEdit={() => setEditing(p)}
+          />
+        ))}
+      </GroupCard>
+
+      {/* add provider */}
+      {firstUnconfigured && (
+        <button type="button" onClick={() => setEditing(firstUnconfigured)} style={{
+          margin: "12px 16px 0", width: "calc(100% - 32px)", height: 46, borderRadius: 12,
+          appearance: "none", border: "1px dashed var(--line)",
+          background: "transparent", color: "var(--accent-ink)",
+          font: "600 14px/1 var(--font-sans)", cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        }}>
+          <Icon name="plus" size={14} stroke={2} />
+          {t("apikeys.addProvider")}
+        </button>
+      )}
+
+      {/* encryption notice */}
+      <SectionHeader>{t("apikeys.notice")}</SectionHeader>
+      <div style={{
+        margin: "0 16px", padding: "12px 14px", borderRadius: 12,
+        background: "var(--bg-2)", border: "0.5px solid var(--line)",
+        font: "400 12.5px/1.55 var(--font-sans)", color: "var(--muted)",
+      }}>
+        {t("apikeys.noticeBody")}
       </div>
+
+      <div style={{ height: 16 }} />
 
       {editing && (
         <KeyEditModal
@@ -126,36 +128,23 @@ export function ApiKeysScreen({ keys }) {
           existing={byProvider[editing]}
           onClose={() => setEditing(null)}
           onSave={(payload) => saveKey(editing, payload)}
+          onRemove={byProvider[editing] ? () => { setEditing(null); revoke(editing); } : null}
         />
       )}
-    </div>
+    </>
   );
 }
 
-function SummaryStat({ label, value, sub, pct }) {
-  return (
-    <div>
-      <div className="eyebrow">{label}</div>
-      <div className="tnum" style={{ font: "500 28px/1 var(--font-sans)", letterSpacing: "-0.01em", marginTop: 8 }}>{value}</div>
-      <div className="muted" style={{ font: "400 12px/1.4 var(--font-sans)", marginTop: 6 }}>{sub}</div>
-      {pct != null && (
-        <div style={{ height: 4, background: "var(--bg-2)", borderRadius: 2, overflow: "hidden", marginTop: 10 }}>
-          <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)" }} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ProviderRow({ provider, row, last, onEdit, onRemove }) {
+function ProviderRow({ provider, row, last, onEdit }) {
   const configured = !!row;
   return (
-    <div className="apikeys-provider-row" style={{
-      display: "flex", alignItems: "center", gap: 14, padding: "16px 18px",
+    <button type="button" onClick={onEdit} style={{
+      width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
       borderBottom: last ? "none" : "0.5px solid var(--line-2)",
+      appearance: "none", border: 0, background: "transparent", cursor: "pointer", textAlign: "left",
     }}>
       <div style={{
-        width: 38, height: 38, borderRadius: 8, flexShrink: 0,
+        width: 34, height: 34, borderRadius: 8, flexShrink: 0,
         background: "var(--bg-2)", border: "0.5px solid var(--line)",
         display: "flex", alignItems: "center", justifyContent: "center",
         font: "600 13px/1 var(--font-sans)", color: "var(--ink-2)",
@@ -163,45 +152,32 @@ function ProviderRow({ provider, row, last, onEdit, onRemove }) {
         {PROVIDER_LABEL[provider][0]}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ font: "500 14px/1.2 var(--font-sans)" }}>{PROVIDER_LABEL[provider]}</span>
-          {configured ? (
-            <span className="badge badge-accent"><span className="dot" /> active</span>
-          ) : (
-            <span className="badge"><span className="dot" /> gateway</span>
+          {configured && (
+            <span className="badge badge-accent" style={{ height: 18 }}><span className="dot" /> active</span>
           )}
         </div>
-        <div className="mono" style={{ font: "400 11.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 6 }}>
+        <div className="mono" style={{ font: "400 11px/1 var(--font-mono)", color: "var(--muted)", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {configured ? (
-            <>{PROVIDER_PREFIX[provider]}<span style={{ color: "var(--muted-2)" }}>•••••••••••••</span>{row.last4 || "fffa"}</>
+            <>{PROVIDER_PREFIX[provider]}<span style={{ color: "var(--muted-2)" }}>•••••</span>{row.last4 || "fffa"}</>
           ) : (
-            <>{PROVIDER_PREFIX[provider]}… not configured</>
+            "Gateway routing"
           )}
         </div>
       </div>
       {configured && (
-        <div className="apikeys-provider-stats" style={{ display: "flex", gap: 24, marginRight: 8 }}>
-          <div>
-            <div className="mono" style={{ font: "400 10px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>Spend</div>
-            <div className="tnum" style={{ font: "500 13px/1 var(--font-sans)", marginTop: 4 }}>${Number(row.spend_usd || 0).toFixed(2)}</div>
-          </div>
-          <div>
-            <div className="mono" style={{ font: "400 10px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>Cap</div>
-            <div className="tnum" style={{ font: "500 13px/1 var(--font-sans)", marginTop: 4 }}>${row.monthly_cap_usd}</div>
-          </div>
+        <div style={{ textAlign: "right", marginRight: 2 }}>
+          <div className="mono tnum" style={{ font: "600 13px/1 var(--font-mono)" }}>${Number(row.spend_usd || 0).toFixed(0)}</div>
+          <div className="mono tnum" style={{ font: "400 10px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4 }}>/{row.monthly_cap_usd}</div>
         </div>
       )}
-      <div style={{ display: "flex", gap: 4 }}>
-        <button className="btn btn-sm" type="button" onClick={onEdit}>
-          {configured ? <><Icon name="edit" size={12} /> Manage</> : <><Icon name="plus" size={12} /> Add key</>}
-        </button>
-        {configured && <button className="btn btn-sm btn-ghost" type="button" onClick={onRemove}><Icon name="trash" size={12} /></button>}
-      </div>
-    </div>
+      <Icon name="chevright" size={14} stroke={1.5} style={{ color: "var(--muted-2)" }} />
+    </button>
   );
 }
 
-function KeyEditModal({ provider, existing, onClose, onSave }) {
+function KeyEditModal({ provider, existing, onClose, onSave, onRemove }) {
   const [key, setKey] = useState("");
   const [show, setShow] = useState(false);
   const [limit, setLimit] = useState(existing?.monthly_cap_usd || 250);
@@ -242,16 +218,23 @@ function KeyEditModal({ provider, existing, onClose, onSave }) {
           Your key bills directly against your provider account. The gateway only proxies requests and writes audit metadata (no message content).
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
-          <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button type="button" className="btn btn-primary" disabled={!key || busy}
-            onClick={async () => {
-              setBusy(true);
-              await onSave({ key, monthly_cap_usd: limit });
-              setBusy(false);
-            }}>
-            {busy ? "Saving…" : "Save"}
-          </button>
+        <div style={{ display: "flex", justifyContent: existing ? "space-between" : "flex-end", gap: 8, marginTop: 18 }}>
+          {existing && onRemove && (
+            <button type="button" className="btn btn-ghost" onClick={onRemove} style={{ color: "oklch(0.55 0.18 25)" }}>
+              <Icon name="trash" size={12} /> Remove
+            </button>
+          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-primary" disabled={!key || busy}
+              onClick={async () => {
+                setBusy(true);
+                await onSave({ key, monthly_cap_usd: limit });
+                setBusy(false);
+              }}>
+              {busy ? "Saving…" : "Save"}
+            </button>
+          </div>
         </div>
       </div>
     </Modal>
