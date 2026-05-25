@@ -394,6 +394,16 @@ a { color: inherit; }
   border-left: 0.5px solid var(--line); border-right: 0.5px solid var(--line);
 }
 .m-shell-bg { min-height: 100vh; min-height: 100dvh; background: var(--bg-2); }
+/* Tablet/desktop: widen the centered column a little and frame it so the
+   surrounding space looks intentional. Still a single mobile-first column. */
+@media (min-width: 768px) {
+  .m-shell { max-width: 600px; box-shadow: 0 0 0 1px var(--line), 0 24px 60px rgba(0,0,0,.10); }
+  .m-shell-bg {
+    background:
+      radial-gradient(1200px 600px at 50% -10%, var(--accent-soft) 0%, transparent 60%),
+      var(--bg-2);
+  }
+}
 .m-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
 .m-tabbar {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 30;
