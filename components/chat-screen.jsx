@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MODELS, modelById } from "@/lib/models";
 import { parseMarkdown } from "@/lib/markdown";
@@ -357,102 +357,94 @@ function FileAttachButton({ onPick }) {
   );
 }
 
-function BranchScopePill({ scope, branch, count, onOpen }) {
-  const label = scope === "ALL" ? `All scope (${count})` : branch ? branch.name : "Select scope";
-  return (
-    <button className="btn btn-sm" type="button" onClick={onOpen}
-      style={{ background: "var(--accent-soft)", color: "var(--accent-ink)", borderColor: "transparent" }}>
-      <Icon name="store" size={13} />
-      <span>{label}</span>
-      <Icon name="chevdown" size={11} />
-    </button>
-  );
-}
-
-function ChatPicker({ open, onOpenChange, trigger, children }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (!open) return;
-    function onClick(e) { if (ref.current && !ref.current.contains(e.target)) onOpenChange(false); }
-    document.addEventListener("mousedown", onClick);
-    return () => document.removeEventListener("mousedown", onClick);
-  }, [open, onOpenChange]);
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      {trigger}
-      {open && (
-        <div style={{
-          position: "absolute", bottom: "calc(100% + 6px)", left: 0,
-          width: 320, maxHeight: 340, overflow: "auto",
-          background: "var(--panel)", border: "0.5px solid var(--line)",
-          borderRadius: 12, boxShadow: "var(--shadow-lg)", zIndex: 80, padding: 6,
-        }}>
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
+// Skill picker body (rendered inside a bottom Sheet) — card per skill with
+// the active one highlighted, plus each skill's tools as chips.
 function SkillList({ skills, value, onChange }) {
   return (
     <>
-      <div className="eyebrow" style={{ padding: "8px 10px 4px" }}>Skills · system prompts</div>
+      <div style={{ font: "400 12.5px/1.4 var(--font-sans)", color: "var(--muted)", padding: "0 20px 12px" }}>
+        System prompts maintained by your admin.
+      </div>
+
       {skills.map((s) => {
         const active = s.id === value;
         return (
-          <button key={s.id} onClick={() => onChange(s.id)} type="button"
-            style={{
-              width: "100%", display: "block", textAlign: "left",
-              padding: "10px 10px", borderRadius: 8, border: 0,
-              background: active ? "var(--accent-soft)" : "transparent",
-              cursor: "pointer",
-            }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Icon name="sparkles" size={13} style={{ color: active ? "var(--accent-ink)" : "var(--muted)" }} />
-              <span style={{ font: "500 13px/1 var(--font-sans)", color: active ? "var(--accent-ink)" : "var(--ink)" }}>{s.name}</span>
-              {active && <Icon name="check" size={13} style={{ marginLeft: "auto", color: "var(--accent-ink)" }} />}
+          <button key={s.id} type="button" onClick={() => onChange(s.id)} style={{
+            appearance: "none", width: "calc(100% - 32px)", display: "block", textAlign: "left",
+            margin: "0 16px 8px", padding: 14, borderRadius: 14, cursor: "pointer",
+            background: active ? "var(--accent-soft)" : "var(--panel)",
+            border: active ? "0.5px solid transparent" : "0.5px solid var(--line)",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{
+                width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                background: active ? "rgba(255,255,255,.55)" : "var(--bg-2)",
+                color: active ? "var(--accent-ink)" : "var(--muted)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}><Icon name="sparkles" size={14} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ font: "600 14.5px/1.2 var(--font-sans)", color: active ? "var(--accent-ink)" : "var(--ink)" }}>{s.name}</div>
+                {s.description && (
+                  <div style={{ font: "400 12.5px/1.45 var(--font-sans)", color: active ? "var(--accent-ink)" : "var(--muted)", marginTop: 3, opacity: active ? 0.8 : 1 }}>{s.description}</div>
+                )}
+              </div>
+              {active && <Icon name="check" size={16} stroke={2} style={{ color: "var(--accent-ink)" }} />}
             </div>
-            <div style={{ font: "400 12px/1.5 var(--font-sans)", color: "var(--muted)", marginTop: 4 }}>{s.description}</div>
             {s.tools?.length > 0 && (
-              <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
-                {s.tools.map((t) => (
-                  <span key={t} className="mono" style={{
-                    font: "400 10px/1 var(--font-mono)", color: "var(--muted)",
-                    padding: "2px 5px", border: "0.5px solid var(--line)", borderRadius: 4,
-                  }}>{t}</span>
+              <div style={{ display: "flex", gap: 5, marginTop: 8, flexWrap: "wrap" }}>
+                {s.tools.map((tool) => (
+                  <span key={tool} className="mono" style={{
+                    font: "500 10.5px/1 var(--font-mono)", padding: "3px 7px", borderRadius: 5,
+                    background: active ? "rgba(255,255,255,.45)" : "var(--bg-2)", color: "var(--muted)",
+                  }}>{tool}</span>
                 ))}
               </div>
             )}
           </button>
         );
       })}
+
+      <div style={{
+        margin: "8px 16px 4px", padding: "10px 14px", borderRadius: 12,
+        background: "var(--bg-2)", border: "0.5px dashed var(--line)",
+        font: "400 11.5px/1.5 var(--font-sans)", color: "var(--muted)",
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <Icon name="shield" size={13} />
+        Only skills you&apos;ve been granted appear here.
+      </div>
     </>
   );
 }
 
+// Model picker body (rendered inside a bottom Sheet).
 function ModelList({ value, onChange }) {
   return (
     <>
-      <div className="eyebrow" style={{ padding: "8px 10px 4px" }}>Model</div>
       {MODELS.map((m) => {
         const active = m.id === value;
         return (
-          <button key={m.id} onClick={() => onChange(m.id)} type="button"
-            style={{
-              width: "100%", display: "flex", alignItems: "center", gap: 12,
-              padding: "10px 10px", borderRadius: 8, border: 0,
-              background: active ? "var(--accent-soft)" : "transparent",
-              cursor: "pointer",
-            }}>
-            <div style={{ flex: 1, textAlign: "left" }}>
-              <div style={{ font: "500 13px/1 var(--font-sans)", color: active ? "var(--accent-ink)" : "var(--ink)" }}>{m.label}</div>
-              <div className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 3 }}>
+          <button key={m.id} type="button" onClick={() => onChange(m.id)} style={{
+            appearance: "none", width: "calc(100% - 32px)", display: "flex", alignItems: "center", gap: 12,
+            margin: "0 16px 8px", padding: 14, borderRadius: 14, cursor: "pointer",
+            background: active ? "var(--accent-soft)" : "var(--panel)",
+            border: active ? "0.5px solid transparent" : "0.5px solid var(--line)",
+          }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+              background: active ? "rgba(255,255,255,.55)" : "var(--bg-2)",
+              color: active ? "var(--accent-ink)" : "var(--muted)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              font: "600 11px/1 var(--font-mono)",
+            }}>{(m.provider || "").slice(0, 2).toUpperCase()}</div>
+            <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+              <div style={{ font: "600 14.5px/1.2 var(--font-sans)", color: active ? "var(--accent-ink)" : "var(--ink)" }}>{m.label}</div>
+              <div className="mono" style={{ font: "400 11px/1 var(--font-mono)", color: active ? "var(--accent-ink)" : "var(--muted)", marginTop: 4, opacity: active ? 0.8 : 1 }}>
                 {m.provider} · {m.ctx} ctx · {m.speed}
               </div>
             </div>
-            <span className="mono" style={{ font: "500 11px/1 var(--font-mono)", color: "var(--muted)" }}>{m.cost}</span>
-            {active && <Icon name="check" size={13} style={{ color: "var(--accent-ink)" }} />}
+            <span className="mono" style={{ font: "500 11px/1 var(--font-mono)", color: active ? "var(--accent-ink)" : "var(--muted)" }}>{m.cost}</span>
+            {active && <Icon name="check" size={16} stroke={2} style={{ color: "var(--accent-ink)" }} />}
           </button>
         );
       })}
