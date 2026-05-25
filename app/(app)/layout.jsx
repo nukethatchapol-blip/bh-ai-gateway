@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Sidebar, AppShell } from "@/components/shell";
+import { MobileShell } from "@/components/mobile-shell";
 
 export default async function AppLayout({ children }) {
   const supabase = await createClient();
@@ -8,32 +8,12 @@ export default async function AppLayout({ children }) {
   if (!user) redirect("/");
 
   const { data: profile } = await supabase
-    .from("profiles")
-    .select("id, email, full_name, role, status")
-    .eq("id", user.id)
-    .single();
-
+    .from("profiles").select("id, email, full_name, role, status").eq("id", user.id).single();
   if (!profile) redirect("/");
   if (profile.status === "pending") redirect("/pending");
   if (profile.status === "disabled") redirect("/?err=disabled");
 
-  // Touch last_seen
-  await supabase
-    .from("profiles")
-    .update({ last_seen_at: new Date().toISOString() })
-    .eq("id", profile.id);
+  await supabase.from("profiles").update({ last_seen_at: new Date().toISOString() }).eq("id", profile.id);
 
-  const { data: recents } = await supabase
-    .from("chats")
-    .select("id, title, updated_at, pinned")
-    .order("pinned", { ascending: false })
-    .order("updated_at", { ascending: false })
-    .limit(8);
-
-  return (
-    <AppShell>
-      <Sidebar user={profile} recents={recents || []} />
-      <div className="app-main">{children}</div>
-    </AppShell>
-  );
+  return <MobileShell role={profile.role}>{children}</MobileShell>;
 }
