@@ -2,38 +2,56 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar, Icon, RoleBadge, Segmented, Tabs, EmptyHint, Field } from "./ui";
-import { PageHeader } from "./shell";
+import { Avatar, Icon, RoleBadge, EmptyHint } from "./ui";
+import { NavBar, SectionHeader, GroupCard } from "./mobile-ui";
+import { useLang } from "./lang-context";
+
+const TABS = [
+  { id: "approvals", labelKey: "admin.tab.approvals" },
+  { id: "users",     labelKey: "admin.tab.users" },
+  { id: "skills",    labelKey: "admin.tab.skills" },
+  { id: "audit",     labelKey: "admin.tab.audit" },
+  { id: "quotas",    labelKey: "admin.tab.quotas" },
+];
 
 export function AdminScreen({ currentUserId, pending, users, skills, audit }) {
   const [tab, setTab] = useState("approvals");
+  const { t } = useLang();
+
   return (
-    <div className="pageframe">
-      <PageHeader title="Admin console" crumb="/ admin">
-        <span className="badge badge-accent"><Icon name="shield" size={11} /> admin</span>
-        <button className="btn btn-sm" type="button"><Icon name="download" size={13} /> Audit CSV</button>
-      </PageHeader>
+    <>
+      <NavBar
+        title={t("nav.admin")}
+        sub={t("admin.pendingSub", { n: pending.length })}
+        leading={<Icon name="shield" size={20} stroke={1.6} style={{ color: "var(--muted)" }} />}
+        trailing={<RoleBadge role="admin" />}
+      />
 
-      <div style={{ padding: "0 28px", borderBottom: "0.5px solid var(--line)", background: "var(--bg)" }}>
-        <Tabs value={tab} onChange={setTab} tabs={[
-          { id: "approvals", label: "Approvals", count: pending.length },
-          { id: "users",     label: "Users",     count: users.length },
-          { id: "skills",    label: "Skills",    count: skills.length },
-          { id: "audit",     label: "Audit log" },
-          { id: "quotas",    label: "Quotas" },
-        ]} />
-      </div>
-
-      <div className="page-body scroll-y">
-        <div style={{ padding: "20px 28px 40px", maxWidth: 1400, margin: "0 auto" }}>
-          {tab === "approvals" && <ApprovalsTab pending={pending} />}
-          {tab === "users" && <UsersTab users={users} currentUserId={currentUserId} />}
-          {tab === "skills" && <SkillsTab skills={skills} />}
-          {tab === "audit" && <AuditTab audit={audit} />}
-          {tab === "quotas" && <QuotasTab users={users} />}
+      {/* segmented control */}
+      <div style={{ padding: "4px 16px 12px", flexShrink: 0 }}>
+        <div style={{ display: "flex", padding: 3, background: "var(--bg-2)", borderRadius: 10, gap: 3, overflowX: "auto" }}>
+          {TABS.map((tb) => {
+            const active = tab === tb.id;
+            return (
+              <button key={tb.id} type="button" onClick={() => setTab(tb.id)} style={{
+                flex: "1 0 auto", textAlign: "center", padding: "6px 10px", borderRadius: 7,
+                appearance: "none", border: 0, cursor: "pointer", whiteSpace: "nowrap",
+                font: `${active ? 600 : 500} 12.5px/1 var(--font-sans)`,
+                background: active ? "var(--panel)" : "transparent",
+                color: active ? "var(--ink)" : "var(--muted)",
+                boxShadow: active ? "0 1px 2px rgba(0,0,0,.05)" : "none",
+              }}>{t(tb.labelKey)}</button>
+            );
+          })}
         </div>
       </div>
-    </div>
+
+      {tab === "approvals" && <ApprovalsTab pending={pending} />}
+      {tab === "users" && <UsersTab users={users} currentUserId={currentUserId} />}
+      {tab === "skills" && <SkillsTab skills={skills} />}
+      {tab === "audit" && <AuditTab audit={audit} />}
+      {tab === "quotas" && <QuotasTab users={users} />}
+    </>
   );
 }
 
@@ -42,6 +60,7 @@ function ApprovalsTab({ pending }) {
   const remaining = pending.filter((u) => !resolved[u.id]);
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const { t } = useLang();
 
   async function decide(profileId, decision) {
     const r = await fetch("/api/admin/approve", {
@@ -56,81 +75,76 @@ function ApprovalsTab({ pending }) {
   }
 
   return (
-    <div className="approvals-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 20 }}>
-      <div>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
-          <h2 className="h-2">Pending access requests</h2>
-          <span className="mono muted" style={{ font: "400 11.5px/1 var(--font-mono)" }}>
-            {remaining.length} pending · {Object.keys(resolved).length} resolved
-          </span>
-        </div>
+    <div style={{ padding: "0 16px" }}>
+      {remaining.length === 0 && (
+        <GroupCard style={{ margin: 0 }}>
+          <EmptyHint icon="check" title={t("admin.allCaughtUp")} hint={t("admin.noPending")} />
+        </GroupCard>
+      )}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {remaining.length === 0 && (
-            <EmptyHint icon="check" title="All caught up" hint="No pending registration requests right now." />
-          )}
-          {remaining.map((p) => (
-            <div key={p.id} className="card" style={{ padding: 16 }}>
-              <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                <Avatar name={p.full_name || p.email} size={36} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ font: "600 14px/1.2 var(--font-sans)" }}>{p.full_name || p.email}</span>
-                    <span className="badge badge-warn"><span className="dot" /> pending</span>
-                  </div>
-                  <div className="mono" style={{ font: "400 11.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4 }}>
-                    {p.email}<span style={{ margin: "0 6px" }}>·</span>requested {p.created_at?.slice(0, 16).replace("T"," ")}
-                  </div>
-                  <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 6, background: "var(--bg-2)",
-                    font: "400 12.5px/1.5 var(--font-sans)", color: "var(--ink-2)" }}>
-                    <div className="mono" style={{ font: "500 10.5px/1 var(--font-mono)", letterSpacing: ".08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Requested scope</div>
-                    {(p.requested_role || "staff").toUpperCase()}{p.requested_branch ? ` · ${p.requested_branch}` : ""}
-                  </div>
-                  {p.request_note && (
-                    <p style={{ font: "400 12.5px/1.5 var(--font-sans)", color: "var(--muted)", margin: "10px 0 0" }}>
-                      "{p.request_note}"
-                    </p>
-                  )}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
-                  <button className="btn btn-sm btn-accent" type="button" onClick={() => decide(p.id, "approve")}>
-                    <Icon name="check" size={12} /> Approve
-                  </button>
-                  <button className="btn btn-sm" type="button" onClick={() => decide(p.id, "deny")}>Deny</button>
-                </div>
+      {remaining.map((p) => (
+        <div key={p.id} style={{
+          background: "var(--panel)", border: "0.5px solid var(--line)", borderRadius: 14,
+          padding: 14, marginBottom: 10,
+        }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <Avatar name={p.full_name || p.email} size={40} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ font: "600 14.5px/1.2 var(--font-sans)" }}>{p.full_name || p.email}</span>
+                <span className="badge badge-warn"><span className="dot" /> {t("admin.pending")}</span>
+              </div>
+              <div className="mono" style={{ font: "400 11.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 5 }}>
+                {p.email}
+              </div>
+              <div className="mono" style={{ font: "400 11px/1 var(--font-mono)", color: "var(--muted-2)", marginTop: 4 }}>
+                {p.created_at?.slice(0, 16).replace("T", " ")}
               </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        <div className="card" style={{ padding: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>Default new-user policy</div>
-          <PolicyRow label="Default role" value="Staff" />
-          <PolicyRow label="Default model" value="claude-4.5-s" mono />
-          <PolicyRow label="Default skill" value="Data Analyst" />
-          <PolicyRow label="Token cap (monthly)" value="2,000,000" mono />
-          <PolicyRow label="Branch scope" value="Single branch only" />
-        </div>
-        <div className="card" style={{ padding: 16 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>SLA</div>
-          <div style={{ font: "400 12px/1.55 var(--font-sans)", color: "var(--muted)" }}>
-            Respond within 1 business day. Approvals auto-grant the requested scope.
+          <div style={{
+            marginTop: 10, padding: "9px 11px", borderRadius: 9, background: "var(--bg-2)",
+            font: "400 12.5px/1.5 var(--font-sans)", color: "var(--ink-2)",
+          }}>
+            <div className="mono" style={{ font: "500 10px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".08em", textTransform: "uppercase", marginBottom: 5 }}>
+              {t("admin.requested")}
+            </div>
+            {(p.requested_role || "staff").toUpperCase()}{p.requested_branch ? ` · ${p.requested_branch}` : ""}
+          </div>
+
+          {p.request_note && (
+            <div style={{ font: "400 12.5px/1.5 var(--font-sans)", color: "var(--muted)", marginTop: 8 }}>
+              &quot;{p.request_note}&quot;
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button type="button" onClick={() => decide(p.id, "approve")} style={{
+              flex: 1, appearance: "none", border: 0, height: 38, borderRadius: 10,
+              background: "var(--accent)", color: "#fff", font: "600 13.5px/1 var(--font-sans)",
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6, cursor: "pointer",
+            }}>
+              <Icon name="check" size={14} stroke={2} />
+              {t("admin.approve")}
+            </button>
+            <button type="button" onClick={() => decide(p.id, "deny")} style={{
+              flex: 1, appearance: "none", border: "0.5px solid var(--line)", height: 38, borderRadius: 10,
+              background: "var(--panel)", color: "var(--ink-2)", font: "500 13.5px/1 var(--font-sans)", cursor: "pointer",
+            }}>{t("admin.deny")}</button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
+      ))}
 
-function PolicyRow({ label, value, mono }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "0.5px solid var(--line-2)" }}>
-      <span style={{ font: "400 12.5px/1 var(--font-sans)", color: "var(--muted)" }}>{label}</span>
-      <span className={mono ? "mono" : ""} style={{ font: `500 12.5px/1 var(--${mono ? "font-mono" : "font-sans"})`, color: "var(--ink)" }}>
-        {value}
-      </span>
+      <div style={{
+        marginTop: 4, padding: "12px 14px", borderRadius: 12,
+        background: "var(--bg-2)", border: "0.5px dashed var(--line)",
+        font: "400 12px/1.5 var(--font-sans)", color: "var(--muted)",
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <Icon name="shield" size={13} />
+        {t("admin.notify")}
+      </div>
     </div>
   );
 }
@@ -169,7 +183,7 @@ function RoleSelect({ user, currentUserId }) {
       disabled={busy}
       onChange={(e) => change(e.target.value)}
       aria-label={`Role for ${user.full_name || user.email}`}
-      style={{ height: 28, width: 116, padding: "0 8px", font: "500 12px/1 var(--font-sans)", textTransform: "capitalize" }}
+      style={{ height: 28, width: 110, padding: "0 8px", font: "500 12px/1 var(--font-sans)", textTransform: "capitalize" }}
     >
       <option value="staff">Staff</option>
       <option value="manager">Manager</option>
@@ -180,33 +194,38 @@ function RoleSelect({ user, currentUserId }) {
 
 function UsersTab({ users, currentUserId }) {
   const [q, setQ] = useState("");
+  const { t } = useLang();
   const filtered = users.filter((u) =>
     !q || u.full_name?.toLowerCase().includes(q.toLowerCase()) ||
     u.email.toLowerCase().includes(q.toLowerCase()) ||
     u.role?.includes(q.toLowerCase())
   );
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, gap: 10 }}>
-        <div style={{ position: "relative", flex: 1, maxWidth: 360 }}>
-          <Icon name="search" size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
-          <input className="input" placeholder="Search by name, email, role…" value={q} onChange={(e) => setQ(e.target.value)} style={{ paddingLeft: 34 }} />
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn btn-sm" type="button"><Icon name="filter" size={13} /> Filter</button>
-        </div>
+    <div style={{ padding: "0 16px" }}>
+      <div style={{ position: "relative", marginBottom: 12 }}>
+        <Icon name="search" size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }} />
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder={t("admin.searchUsers")}
+          style={{
+            width: "100%", height: 38, borderRadius: 10, border: "0.5px solid var(--line)",
+            background: "var(--panel)", color: "var(--ink)", paddingLeft: 36, paddingRight: 12,
+            font: "400 14px/1 var(--font-sans)",
+          }}
+        />
       </div>
 
-      <div className="card admin-tab-table" style={{ overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/1.4 var(--font-sans)", minWidth: 700 }}>
+      <GroupCard style={{ margin: 0, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/1.4 var(--font-sans)", minWidth: 640 }}>
           <thead>
             <tr>
-              {["User", "Role", "Branch scope", "Last seen", "Status"].map((h) => (
+              {[t("admin.col.user"), t("admin.col.role"), t("admin.col.scope"), t("admin.col.lastSeen"), t("admin.col.status")].map((h) => (
                 <th key={h} style={{
-                  textAlign: "left", padding: "10px 16px",
+                  textAlign: "left", padding: "10px 14px",
                   font: "500 10.5px/1 var(--font-mono)", letterSpacing: ".06em", textTransform: "uppercase",
-                  color: "var(--muted)", borderBottom: "0.5px solid var(--line)",
-                  background: "var(--panel-2)",
+                  color: "var(--muted)", borderBottom: "0.5px solid var(--line)", whiteSpace: "nowrap",
+                  background: "var(--bg-2)",
                 }}>{h}</th>
               ))}
             </tr>
@@ -214,17 +233,17 @@ function UsersTab({ users, currentUserId }) {
           <tbody>
             {filtered.map((u, i) => (
               <tr key={u.id} style={{ borderBottom: i < filtered.length - 1 ? "0.5px solid var(--line-2)" : "none" }}>
-                <td style={{ padding: "12px 16px" }}>
+                <td style={{ padding: "12px 14px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <Avatar name={u.full_name || u.email} size={28} />
                     <div>
-                      <div style={{ font: "500 13px/1.2 var(--font-sans)" }}>{u.full_name || u.email}</div>
+                      <div style={{ font: "500 13px/1.2 var(--font-sans)", whiteSpace: "nowrap" }}>{u.full_name || u.email}</div>
                       <div className="mono" style={{ font: "400 11px/1 var(--font-mono)", color: "var(--muted)", marginTop: 2 }}>{u.email}</div>
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: "12px 16px" }}><RoleSelect user={u} currentUserId={currentUserId} /></td>
-                <td style={{ padding: "12px 16px" }}>
+                <td style={{ padding: "12px 14px" }}><RoleSelect user={u} currentUserId={currentUserId} /></td>
+                <td style={{ padding: "12px 14px" }}>
                   {u.branches === "ALL"
                     ? <span style={{ font: "500 12.5px/1 var(--font-sans)" }}>All branches</span>
                     : (
@@ -245,104 +264,112 @@ function UsersTab({ users, currentUserId }) {
                     )
                   }
                 </td>
-                <td style={{ padding: "12px 16px", color: "var(--muted)", font: "400 12.5px/1 var(--font-sans)" }}>
+                <td style={{ padding: "12px 14px", color: "var(--muted)", font: "400 12.5px/1 var(--font-sans)", whiteSpace: "nowrap" }}>
                   {u.last_seen_at ? new Date(u.last_seen_at).toLocaleString() : "—"}
                 </td>
-                <td style={{ padding: "12px 16px" }}>
+                <td style={{ padding: "12px 14px" }}>
                   <span className="badge badge-accent"><span className="dot" /> {u.status}</span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </GroupCard>
     </div>
   );
 }
 
 function SkillsTab({ skills }) {
   const [active, setActive] = useState(skills[0]?.id);
+  const { t } = useLang();
   const s = skills.find((x) => x.id === active);
-  if (!s) return <EmptyHint title="No skills defined" hint="Create a skill via SQL or extend this UI to call /api/admin/skills." />;
+  if (!s) return (
+    <div style={{ padding: "0 16px" }}>
+      <GroupCard style={{ margin: 0 }}>
+        <EmptyHint title={t("admin.noSkills")} hint={t("admin.noSkills.hint")} />
+      </GroupCard>
+    </div>
+  );
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 20, alignItems: "start" }}>
-      <div className="card">
-        <div style={{ padding: "12px 14px", borderBottom: "0.5px solid var(--line)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span className="eyebrow">Skills</span>
-        </div>
-        {skills.map((sk) => (
-          <button key={sk.id} onClick={() => setActive(sk.id)} type="button"
-            style={{
-              width: "100%", display: "block", textAlign: "left",
-              padding: "12px 14px", border: 0,
-              background: sk.id === active ? "var(--bg-2)" : "transparent",
-              borderLeft: `2px solid ${sk.id === active ? "var(--accent)" : "transparent"}`,
-              cursor: "pointer",
-            }}>
-            <div style={{ font: "500 13px/1.2 var(--font-sans)" }}>{sk.name}</div>
-            <div className="mono" style={{ font: "400 10.5px/1.3 var(--font-mono)", color: "var(--muted)", marginTop: 4 }}>{sk.id}</div>
-          </button>
-        ))}
+    <div style={{ padding: "0 16px" }}>
+      {/* skill picker */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+        {skills.map((sk) => {
+          const on = sk.id === active;
+          return (
+            <button key={sk.id} type="button" onClick={() => setActive(sk.id)} style={{
+              padding: "6px 12px", borderRadius: 999, cursor: "pointer",
+              font: `${on ? 600 : 500} 12.5px/1 var(--font-sans)`,
+              background: on ? "var(--accent)" : "var(--panel)",
+              color: on ? "#fff" : "var(--ink-2)",
+              border: on ? "0.5px solid transparent" : "0.5px solid var(--line)",
+            }}>{sk.name}</button>
+          );
+        })}
       </div>
-      <div className="card" style={{ padding: 24 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <h3 className="h-2">{s.name}</h3>
-            <p className="muted" style={{ font: "400 13px/1.5 var(--font-sans)", margin: "4px 0 0", maxWidth: 540 }}>{s.description}</p>
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
-          <Field label="ID"><input className="input mono" value={s.id} readOnly /></Field>
-          <Field label="Visible to">
-            <input className="input" value={s.visible_to || "everyone"} readOnly />
-          </Field>
-        </div>
+
+      <GroupCard style={{ margin: 0, padding: 16 }}>
+        <div style={{ font: "600 16px/1.2 var(--font-sans)" }}>{s.name}</div>
+        <p className="muted" style={{ font: "400 13px/1.5 var(--font-sans)", margin: "6px 0 0" }}>{s.description}</p>
+
         <div style={{ marginTop: 16 }}>
-          <Field label="System prompt" hint="Inserted at the top of every conversation using this skill.">
-            <textarea className="input" rows={6} defaultValue={s.system_prompt} readOnly />
-          </Field>
+          <SkillField label={t("admin.skill.id")}>
+            <div className="mono" style={{ font: "400 12.5px/1.4 var(--font-mono)", color: "var(--ink-2)", padding: "8px 10px", borderRadius: 8, background: "var(--bg-2)", border: "0.5px solid var(--line)" }}>{s.id}</div>
+          </SkillField>
         </div>
-        <div style={{ marginTop: 16 }}>
-          <div style={{ font: "500 12px/1 var(--font-sans)", color: "var(--ink-2)", marginBottom: 8 }}>Tool access</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {(s.tools || []).map((t) => (
-              <span key={t} className="mono" style={{
+        <div style={{ marginTop: 12 }}>
+          <SkillField label={t("admin.skill.visible")}>
+            <div style={{ font: "400 13px/1.4 var(--font-sans)", color: "var(--ink-2)", padding: "8px 10px", borderRadius: 8, background: "var(--bg-2)", border: "0.5px solid var(--line)" }}>{s.visible_to || "everyone"}</div>
+          </SkillField>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <SkillField label={t("admin.skill.prompt")}>
+            <div style={{ font: "400 12.5px/1.55 var(--font-sans)", color: "var(--ink-2)", padding: "10px 12px", borderRadius: 8, background: "var(--bg-2)", border: "0.5px solid var(--line)", whiteSpace: "pre-wrap" }}>{s.system_prompt}</div>
+          </SkillField>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <div style={{ font: "500 12px/1 var(--font-sans)", color: "var(--ink-2)", marginBottom: 8 }}>{t("admin.skill.tools")}</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {(s.tools || []).map((tool) => (
+              <span key={tool} className="mono" style={{
                 font: "500 11px/1 var(--font-mono)", padding: "5px 9px", borderRadius: 6,
                 background: "var(--accent-soft)", color: "var(--accent-ink)",
                 display: "inline-flex", alignItems: "center", gap: 6,
               }}>
-                <Icon name="check" size={10} /> {t}
+                <Icon name="check" size={10} /> {tool}
               </span>
             ))}
           </div>
         </div>
-      </div>
+      </GroupCard>
+    </div>
+  );
+}
+
+function SkillField({ label, children }) {
+  return (
+    <div>
+      <div style={{ font: "500 11px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+      {children}
     </div>
   );
 }
 
 function AuditTab({ audit }) {
-  const fmt = (t) => t ? new Date(t).toLocaleTimeString() : "—";
+  const fmt = (t) => t ? new Date(t).toLocaleString() : "—";
+  const { t } = useLang();
   return (
-    <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-        <input className="input" placeholder="Filter events…" style={{ maxWidth: 280 }} />
-        <Segmented value="today" onChange={() => {}} options={[
-          { value: "today", label: "Today" }, { value: "wk", label: "7d" }, { value: "mo", label: "30d" }, { value: "all", label: "All" }
-        ]} />
-        <div style={{ flex: 1 }} />
-        <button className="btn btn-sm" type="button"><Icon name="download" size={12} /> Export</button>
-      </div>
-      <div className="card admin-tab-table" style={{ overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", font: "400 12.5px/1.4 var(--font-sans)", minWidth: 720 }}>
+    <div style={{ padding: "0 16px" }}>
+      <GroupCard style={{ margin: 0, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", font: "400 12.5px/1.4 var(--font-sans)", minWidth: 680 }}>
           <thead>
             <tr>
-              {["Time", "User", "Action", "Scope", "Model", "Tokens", "Status"].map((h, i) => (
+              {[t("admin.col.time"), t("admin.col.user"), t("admin.col.action"), t("admin.col.scope"), t("admin.col.model"), t("admin.col.tokens"), t("admin.col.status")].map((h, i) => (
                 <th key={h} style={{
-                  textAlign: i >= 5 ? "right" : "left", padding: "10px 16px",
+                  textAlign: i >= 5 ? "right" : "left", padding: "10px 14px",
                   font: "500 10.5px/1 var(--font-mono)", letterSpacing: ".06em", textTransform: "uppercase",
-                  color: "var(--muted)", borderBottom: "0.5px solid var(--line)",
-                  background: "var(--panel-2)",
+                  color: "var(--muted)", borderBottom: "0.5px solid var(--line)", whiteSpace: "nowrap",
+                  background: "var(--bg-2)",
                 }}>{h}</th>
               ))}
             </tr>
@@ -350,13 +377,13 @@ function AuditTab({ audit }) {
           <tbody className="mono tnum" style={{ font: "400 12px/1.4 var(--font-mono)" }}>
             {audit.map((e, i) => (
               <tr key={e.id} style={{ borderBottom: i < audit.length - 1 ? "0.5px solid var(--line-2)" : "none" }}>
-                <td style={{ padding: "10px 16px", color: "var(--muted)" }}>{fmt(e.created_at)}</td>
-                <td style={{ padding: "10px 16px", color: "var(--ink)" }}>{e.user_id?.slice(0, 6) || "—"}</td>
-                <td style={{ padding: "10px 16px", color: e.status === "denied" ? "oklch(0.55 0.18 25)" : "var(--ink-2)" }}>{e.action}</td>
-                <td style={{ padding: "10px 16px", color: "var(--ink-2)" }}>{e.scope}</td>
-                <td style={{ padding: "10px 16px", color: "var(--muted)" }}>{e.model || "—"}</td>
-                <td style={{ padding: "10px 16px", textAlign: "right", color: "var(--ink-2)" }}>{e.tokens?.toLocaleString() || "—"}</td>
-                <td style={{ padding: "10px 16px", textAlign: "right" }}>
+                <td style={{ padding: "10px 14px", color: "var(--muted)", whiteSpace: "nowrap" }}>{fmt(e.created_at)}</td>
+                <td style={{ padding: "10px 14px", color: "var(--ink)" }}>{e.user_id?.slice(0, 6) || "—"}</td>
+                <td style={{ padding: "10px 14px", color: e.status === "denied" ? "oklch(0.55 0.18 25)" : "var(--ink-2)" }}>{e.action}</td>
+                <td style={{ padding: "10px 14px", color: "var(--ink-2)" }}>{e.scope}</td>
+                <td style={{ padding: "10px 14px", color: "var(--muted)" }}>{e.model || "—"}</td>
+                <td style={{ padding: "10px 14px", textAlign: "right", color: "var(--ink-2)" }}>{e.tokens?.toLocaleString() || "—"}</td>
+                <td style={{ padding: "10px 14px", textAlign: "right" }}>
                   <span className={e.status === "denied" ? "badge badge-red" : "badge badge-accent"} style={{ height: 18, fontSize: 10 }}>
                     <span className="dot" /> {e.status}
                   </span>
@@ -364,22 +391,25 @@ function AuditTab({ audit }) {
               </tr>
             ))}
             {audit.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>No events yet.</td></tr>
+              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>{t("admin.noEvents")}</td></tr>
             )}
           </tbody>
         </table>
-      </div>
+      </GroupCard>
     </div>
   );
 }
 
 function QuotasTab({ users }) {
+  const { t } = useLang();
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+    <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
       {users.slice(0, 8).map((u) => {
         const used = Math.abs(((u.id || "").charCodeAt(2) * 7919) % 100);
         return (
-          <div key={u.id} className="card" style={{ padding: 18 }}>
+          <div key={u.id} style={{
+            background: "var(--panel)", border: "0.5px solid var(--line)", borderRadius: 14, padding: 16,
+          }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <Avatar name={u.full_name || u.email} size={32} />
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -388,9 +418,9 @@ function QuotasTab({ users }) {
               </div>
               <RoleBadge role={u.role} />
             </div>
-            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <QuotaBar label="Tokens" used={used * 24000} cap={u.monthly_token_cap || 2_000_000} unit="" />
-              <QuotaBar label="Spend" used={Number((used * 1.4).toFixed(2))} cap={u.monthly_spend_cap_usd || 50} unit="$" />
+            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <QuotaBar label={t("admin.quota.tokens")} used={used * 24000} cap={u.monthly_token_cap || 2_000_000} unit="" />
+              <QuotaBar label={t("admin.quota.spend")} used={Number((used * 1.4).toFixed(2))} cap={u.monthly_spend_cap_usd || 50} unit="$" />
             </div>
           </div>
         );
@@ -407,9 +437,9 @@ function QuotaBar({ label, used, cap, unit }) {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
         <span className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>{label}</span>
-        <span className="mono tnum" style={{ font: "500 11px/1 var(--font-mono)", color: danger ? "oklch(0.55 0.18 25)" : warn ? "oklch(0.55 0.18 70)" : "var(--ink-2)" }}>
-          {unit}{used.toLocaleString()} <span style={{ color: "var(--muted)" }}>/ {unit}{cap.toLocaleString()}</span>
-        </span>
+      </div>
+      <div className="mono tnum" style={{ font: "500 11px/1 var(--font-mono)", color: danger ? "oklch(0.55 0.18 25)" : warn ? "oklch(0.55 0.18 70)" : "var(--ink-2)", marginBottom: 6 }}>
+        {unit}{used.toLocaleString()} <span style={{ color: "var(--muted)" }}>/ {unit}{cap.toLocaleString()}</span>
       </div>
       <div style={{ height: 5, background: "var(--bg-2)", borderRadius: 3, overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%",
