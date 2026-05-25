@@ -9,10 +9,6 @@ import { PROVIDER_LABEL, PROVIDER_PREFIX } from "@/lib/models";
 
 const PROVIDERS = ["openai", "anthropic", "google", "mistral", "groq", "openrouter"];
 
-// Static gateway-credit chrome (no real per-user gateway credit ledger exists yet).
-const GATEWAY_CREDIT_USED = 182;
-const GATEWAY_CREDIT_CAP = 250;
-
 export function ApiKeysScreen({ keys }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -46,8 +42,6 @@ export function ApiKeysScreen({ keys }) {
     startTransition(() => router.refresh());
   }
 
-  const creditPct = Math.min(100, (GATEWAY_CREDIT_USED / GATEWAY_CREDIT_CAP) * 100);
-
   return (
     <>
       <NavBar
@@ -56,29 +50,14 @@ export function ApiKeysScreen({ keys }) {
         leading={<Icon name="key" size={20} stroke={1.6} style={{ color: "var(--muted)" }} />}
       />
 
-      {/* summary card */}
+      {/* summary card — real monthly spend only */}
       <GroupCard style={{ margin: "0 16px 14px", padding: 14 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div>
-            <div className="mono" style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>
-              {t("apikeys.monthlySpend")}
-            </div>
-            <div className="tnum" style={{ font: "600 22px/1 var(--font-sans)", marginTop: 8, letterSpacing: "-0.01em" }}>${monthlySpend.toFixed(2)}</div>
-            <div style={{ font: "400 11.5px/1.3 var(--font-sans)", color: "var(--muted)", marginTop: 5 }}>
-              {t("apikeys.keysConfigured", { n: configured })}
-            </div>
-          </div>
-          <div>
-            <div className="mono" style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>
-              {t("apikeys.gatewayCredits")}
-            </div>
-            <div className="tnum" style={{ font: "600 22px/1 var(--font-sans)", marginTop: 8, letterSpacing: "-0.01em" }}>
-              ${GATEWAY_CREDIT_USED}<span style={{ color: "var(--muted)", font: "400 14px/1 var(--font-sans)" }}>/{GATEWAY_CREDIT_CAP}</span>
-            </div>
-            <div style={{ height: 4, background: "var(--bg-2)", borderRadius: 2, overflow: "hidden", marginTop: 8 }}>
-              <div style={{ width: `${creditPct}%`, height: "100%", background: "var(--accent)" }} />
-            </div>
-          </div>
+        <div className="mono" style={{ font: "500 10.5px/1 var(--font-mono)", color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>
+          {t("apikeys.monthlySpend")}
+        </div>
+        <div className="tnum" style={{ font: "600 24px/1 var(--font-sans)", marginTop: 8, letterSpacing: "-0.01em" }}>${monthlySpend.toFixed(2)}</div>
+        <div style={{ font: "400 11.5px/1.3 var(--font-sans)", color: "var(--muted)", marginTop: 5 }}>
+          {t("apikeys.keysConfigured", { n: configured })}
         </div>
       </GroupCard>
 
