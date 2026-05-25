@@ -5,27 +5,15 @@ import { ChatHome } from "@/components/chat-home";
 export default async function ChatPage({ searchParams }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
 
-  const { data: skills } = await supabase
-    .from("skills")
-    .select("id, name, description, tools")
-    .eq("active", true)
-    .order("name");
-
-  const { data: branches } = await supabase
-    .from("branches")
-    .select("id, name, region")
-    .order("id");
-
-  const { data: access } = await supabase
-    .from("branch_access")
-    .select("branch_id")
-    .eq("user_id", profile.id);
+  // Independent queries — run in parallel rather than four sequential
+  // round trips to the (Singapore) DB.
+  const [{ data: profile }, { data: skills }, { data: branches }, { data: access }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    supabase.from("skills").select("id, name, description, tools").eq("active", true).order("name"),
+    supabase.from("branches").select("id, name, region").order("id"),
+    supabase.from("branch_access").select("branch_id").eq("user_id", user.id),
+  ]);
   const authorizedIds = (access || []).map((a) => a.branch_id);
 
   const params = await searchParams;

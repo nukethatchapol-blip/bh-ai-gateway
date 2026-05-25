@@ -16,17 +16,16 @@ export default async function DashboardPage({ searchParams }) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from("profiles").select("id, role").eq("id", user.id).single();
-  const { data: branches } = await supabase.from("branches").select("*").order("name");
 
-  const { data: access } = await supabase
-    .from("branch_access")
-    .select("branch_id")
-    .eq("user_id", profile.id);
+  // These four queries are independent — run them in parallel instead of
+  // four sequential round trips to the (Singapore) DB.
+  const [{ data: profile }, { data: branches }, { data: access }, { data: kpis }] = await Promise.all([
+    supabase.from("profiles").select("id, role").eq("id", user.id).single(),
+    supabase.from("branches").select("*").order("name"),
+    supabase.from("branch_access").select("branch_id").eq("user_id", user.id),
+    supabase.rpc("bearhouse_branch_kpis", { p_from: from, p_to: to }),
+  ]);
   const authorizedIds = (access || []).map((a) => a.branch_id);
-
-  // Phase 2: real KPIs via security-definer RPC, scoped to caller's branches
-  const { data: kpis } = await supabase.rpc("bearhouse_branch_kpis", { p_from: from, p_to: to });
 
   return (
     <DashboardScreen
