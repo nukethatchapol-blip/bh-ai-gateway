@@ -670,7 +670,13 @@ function Message({ m, skill, user, streaming = false, showThinking = false }) {
 
 function MessageBlock({ block }) {
   if (block.type === "p") {
-    const html = block.text
+    // SECURITY: escape HTML entities FIRST so raw model/assistant output can't
+    // inject markup (stored XSS via prompt injection). Only after escaping do we
+    // add our own known-safe tags for bold/code/branch chips.
+    const html = (block.text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
       .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
       .replace(/`([^`]+)`/g, '<code style="font:500 12.5px/1 var(--font-mono);background:var(--bg-2);padding:1px 5px;border-radius:4px;">$1</code>')
       .replace(/\[(BKK|CNX|HKT|PTY|KKC|UDN|HHN)-(\d+)\]/g, '<span class="chip">$1-$2</span>')

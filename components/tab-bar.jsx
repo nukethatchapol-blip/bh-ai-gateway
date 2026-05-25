@@ -17,7 +17,7 @@ export function TabBar({ role }) {
     <div className="m-tabbar">
       <div style={{ display: "flex", padding: "8px 8px 4px" }}>
         {tabs.map((tab) => {
-          const active = pathname?.startsWith(tab.href);
+          const active = pathname === tab.href || pathname?.startsWith(tab.href + "/");
           return (
             <Link key={tab.id} href={tab.href} style={{
               flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3,

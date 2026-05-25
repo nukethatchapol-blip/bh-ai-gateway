@@ -193,7 +193,7 @@ export function AccessScreen({ users, branches, affectedTables = [] }) {
                       <div style={{ font: "500 14px/1.2 var(--font-sans)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</div>
                       <div className="mono" style={{ font: "400 11px/1 var(--font-mono)", color: "var(--muted)", marginTop: 3 }}>{b.id}</div>
                     </div>
-                    <MToggle on={on} onChange={() => toggleBranch(b.id)} />
+                    <MToggle on={on} onChange={() => toggleBranch(b.id)} label={`${b.name} (${b.id})`} />
                   </div>
                 );
               })}

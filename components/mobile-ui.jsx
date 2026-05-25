@@ -38,9 +38,9 @@ export function GroupCard({ children, style }) {
   );
 }
 
-export function MToggle({ on, onChange }) {
+export function MToggle({ on, onChange, label }) {
   return (
-    <button type="button" onClick={onChange} aria-pressed={on} style={{
+    <button type="button" onClick={onChange} aria-pressed={on} aria-label={label} title={label} style={{
       appearance: "none", border: 0, padding: 2, cursor: "pointer",
       width: 44, height: 26, borderRadius: 999,
       background: on ? "var(--accent)" : "var(--line)",

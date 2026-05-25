@@ -66,7 +66,7 @@ export function SettingsScreen({ profile }) {
 
       <SectionHeader>{t("settings.appearance")}</SectionHeader>
       <GroupCard>
-        <Row icon="sparkles" label={t("settings.darkMode")} right={<MToggle on={isDark} onChange={toggleTheme} />} />
+        <Row icon="sparkles" label={t("settings.darkMode")} right={<MToggle on={isDark} onChange={toggleTheme} label={t("settings.darkMode")} />} />
         <Row icon="globe" label={t("settings.language")} right={
           <button type="button" onClick={() => setLang(lang === "th" ? "en" : "th")}
             className="mono" style={{ border: 0, background: "var(--bg-2)", color: "var(--ink-2)", padding: "4px 10px", borderRadius: 6, font: "500 11px/1 var(--font-mono)", cursor: "pointer" }}>
