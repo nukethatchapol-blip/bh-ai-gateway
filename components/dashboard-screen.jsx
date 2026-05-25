@@ -6,15 +6,22 @@ import { Icon, Sparkline, Avatar } from "./ui";
 import { NavBar, SectionHeader, GroupCard, roundBtn, Sheet } from "./mobile-ui";
 import { useLang } from "./lang-context";
 
-function spark(seed, n = 24) {
-  const out = [];
-  let v = 50, s = seed * 17 + 3;
-  for (let i = 0; i < n; i++) {
-    s = (s * 9301 + 49297) % 233280;
-    v = Math.max(20, Math.min(100, v + (s / 233280 - 0.45) * 16));
-    out.push(v);
+function sumDaily(rows) {
+  let rev = 0, bills = 0, member = 0;
+  for (const r of rows || []) {
+    rev += Number(r.net_revenue || 0);
+    bills += Number(r.bills || 0);
+    member += Number(r.member_bills || 0);
   }
-  return out;
+  return { rev, bills, member, aov: bills ? rev / bills : 0, memberPct: bills ? (member / bills) * 100 : 0 };
+}
+function pctDelta(cur, prev) {
+  if (!prev) return null; // no prior baseline → caller shows "new"
+  return ((cur - prev) / prev) * 100;
+}
+function fmtDelta(d, t) {
+  if (d === null || !isFinite(d)) return { text: t("dash.deltaNew"), neg: false };
+  return { text: `${d >= 0 ? "+" : ""}${d.toFixed(1)}%`, neg: d < 0 };
 }
 
 function fmtRange(from, to, lang) {
@@ -26,7 +33,7 @@ function fmtRange(from, to, lang) {
   return `${fL} – ${tL}`;
 }
 
-export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], from, to }) {
+export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], kpisPrior = [], daily = [], dailyPrior = [], from, to }) {
   const router = useRouter();
   const { t, lang } = useLang();
   const [scope, setScope] = useState("ALL");
@@ -51,59 +58,54 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], f
     return scope === "ALL" ? auth : auth.filter((b) => b.id === scope);
   }, [branches, authorizedIds, scope]);
 
+  const kpiPriorByRef = useMemo(() => {
+    const m = {};
+    kpisPrior.forEach((k) => { m[k.branch_ref] = k; });
+    return m;
+  }, [kpisPrior]);
+
   const stats = useMemo(() => visible.map((b) => {
-    // Use real, date-filtered KPI rows from bearhouse_branch_kpis. Branches with
-    // no sales in the selected range show ฿0 — never fabricated numbers.
     const real = kpiByRef[b.id];
+    const sales = Number(real?.net_revenue || 0);
+    const priorSales = Number(kpiPriorByRef[b.id]?.net_revenue || 0);
     return {
       ...b,
-      sales: Number(real?.net_revenue || 0),
+      sales,
       customers: Number(real?.bills || 0),
-      growth: 0,
+      growth: pctDelta(sales, priorSales) ?? 0,
     };
-  }), [visible, kpiByRef]);
+  }), [visible, kpiByRef, kpiPriorByRef]);
 
-  const totals = useMemo(() => {
-    const sales = stats.reduce((a, b) => a + b.sales, 0);
-    const customers = stats.reduce((a, b) => a + b.customers, 0);
-    const growth = stats.length ? stats.reduce((a, b) => a + b.growth, 0) / stats.length : 0;
-    const aov = customers ? sales / customers : 0;
-    return { sales, customers, growth, aov };
-  }, [stats]);
+  const cur = useMemo(() => sumDaily(daily), [daily]);
+  const prev = useMemo(() => sumDaily(dailyPrior), [dailyPrior]);
+
+  // Daily arrays for the chart + sparklines (chronological).
+  const series = useMemo(() => {
+    const rows = [...(daily || [])].sort((a, b) => String(a.day).localeCompare(String(b.day)));
+    return {
+      revenue: rows.map((r) => Number(r.net_revenue || 0)),
+      bills:   rows.map((r) => Number(r.bills || 0)),
+      aov:     rows.map((r) => (Number(r.bills) ? Number(r.net_revenue) / Number(r.bills) : 0)),
+      member:  rows.map((r) => (Number(r.bills) ? (Number(r.member_bills) / Number(r.bills)) * 100 : 0)),
+    };
+  }, [daily]);
+
+  const totals = { sales: cur.rev, customers: cur.bills, aov: cur.aov, memberPct: cur.memberPct };
 
   const rangeLabel = fmtRange(fromVal, toVal, lang);
 
   const topBranches = useMemo(() => [...stats].sort((a, b) => b.sales - a.sales).slice(0, 8), [stats]);
 
+  const dRevenue = fmtDelta(pctDelta(cur.rev, prev.rev), t);
+  const dBills   = fmtDelta(pctDelta(cur.bills, prev.bills), t);
+  const dAov     = fmtDelta(pctDelta(cur.aov, prev.aov), t);
+  const dMember  = fmtDelta(pctDelta(cur.memberPct, prev.memberPct), t);
+
   const kpiCards = [
-    {
-      label: t("dash.kpi.revenue"),
-      value: `฿${(totals.sales / 1000).toFixed(0)}K`,
-      delta: `${totals.growth >= 0 ? "+" : ""}${totals.growth.toFixed(1)}%`,
-      neg: totals.growth < 0,
-      data: spark(0),
-    },
-    {
-      label: t("dash.kpi.customers"),
-      value: totals.customers.toLocaleString(),
-      delta: "+6.2%",
-      neg: false,
-      data: spark(1),
-    },
-    {
-      label: t("dash.kpi.avgticket"),
-      value: `฿${totals.aov.toFixed(0)}`,
-      delta: "+3.1%",
-      neg: false,
-      data: spark(2),
-    },
-    {
-      label: t("dash.kpi.inventory"),
-      value: "92.4%",
-      delta: "-1.8%",
-      neg: true,
-      data: spark(3),
-    },
+    { label: t("dash.kpi.revenue"),  value: `฿${(totals.sales / 1000).toFixed(0)}K`, delta: dRevenue.text, neg: dRevenue.neg, data: series.revenue },
+    { label: t("dash.kpi.customers"), value: totals.customers.toLocaleString(),       delta: dBills.text,   neg: dBills.neg,   data: series.bills },
+    { label: t("dash.kpi.avgticket"), value: `฿${totals.aov.toFixed(0)}`,             delta: dAov.text,     neg: dAov.neg,     data: series.aov },
+    { label: t("dash.kpi.members"),   value: `${totals.memberPct.toFixed(1)}%`,       delta: dMember.text,  neg: dMember.neg,  data: series.member },
   ];
 
   return (
@@ -163,7 +165,7 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], f
 
       {/* revenue chart card */}
       <GroupCard style={{ margin: "12px 16px 0", padding: 16, borderRadius: 14 }}>
-        <RevenueChart range={rangeLabel} branches={stats} growth={totals.growth} />
+        <RevenueChart range={rangeLabel} data={series.revenue} growth={pctDelta(cur.rev, prev.rev) ?? 0} branchCount={visible.length} />
       </GroupCard>
 
       {/* top branches */}
@@ -240,20 +242,11 @@ function Kpi({ label, value, delta, deltaNeg, sparkData }) {
   );
 }
 
-function RevenueChart({ range, branches, growth }) {
+function RevenueChart({ range, data = [], growth, branchCount }) {
   const { t } = useLang();
-  const days = 30;
-  const data = useMemo(() => {
-    let s = 19;
-    return Array.from({ length: days }, () => {
-      s = (s * 9301 + 49297) % 233280;
-      const base = branches.reduce((a, b) => a + b.sales, 0) / 30 || 1000;
-      return Math.max(base * 0.6, base + (s / 233280 - 0.5) * base * 0.45);
-    });
-  }, [branches, days]);
-  const max = Math.max(...data, 1);
-
-  const ptsMain = data.map((v, i) => [(i / (data.length - 1)) * 320, 100 - (v / max) * 90]);
+  const pts = data.length ? data : [0, 0];
+  const max = Math.max(...pts, 1);
+  const ptsMain = pts.map((v, i) => [(i / Math.max(1, pts.length - 1)) * 320, 100 - (v / max) * 90]);
   const pathMain = ptsMain.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
   const areaMain = `${pathMain} L320,110 L0,110 Z`;
 
@@ -263,7 +256,7 @@ function RevenueChart({ range, branches, growth }) {
         <div>
           <div style={{ font: "600 15px/1.2 var(--font-sans)" }}>{t("dash.revenue")}</div>
           <div style={{ font: "400 11.5px/1 var(--font-sans)", color: "var(--muted)", marginTop: 4 }}>
-            {t("dash.revenue.sub", { n: branches.length, s: branches.length === 1 ? "" : "es", range })}
+            {t("dash.revenue.sub", { n: branchCount, s: branchCount === 1 ? "" : "es", range })}
           </div>
         </div>
         <div className="mono tnum" style={{ font: "500 11px/1 var(--font-mono)", color: growth >= 0 ? "var(--accent-ink)" : "oklch(0.55 0.18 25)" }}>
