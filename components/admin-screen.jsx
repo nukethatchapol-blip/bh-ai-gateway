@@ -152,13 +152,14 @@ function ApprovalsTab({ pending }) {
 function RoleSelect({ user, currentUserId }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const { t } = useLang();
 
   // An admin can't change their own role (prevents self-lockout).
   if (user.id === currentUserId) {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <RoleBadge role={user.role} />
-        <span className="mono" style={{ font: "400 9.5px/1 var(--font-mono)", color: "var(--muted-2)" }}>you</span>
+        <span className="mono" style={{ font: "400 9.5px/1 var(--font-mono)", color: "var(--muted-2)" }}>{t("admin.you")}</span>
       </span>
     );
   }
@@ -173,7 +174,7 @@ function RoleSelect({ user, currentUserId }) {
     });
     setBusy(false);
     if (r.ok) router.refresh();
-    else alert((await r.json().catch(() => ({}))).error || "Role update failed");
+    else alert((await r.json().catch(() => ({}))).error || t("admin.roleUpdateFailed"));
   }
 
   return (
@@ -185,9 +186,9 @@ function RoleSelect({ user, currentUserId }) {
       aria-label={`Role for ${user.full_name || user.email}`}
       style={{ height: 28, width: 110, padding: "0 8px", font: "500 12px/1 var(--font-sans)", textTransform: "capitalize" }}
     >
-      <option value="staff">Staff</option>
-      <option value="manager">Manager</option>
-      <option value="admin">Admin</option>
+      <option value="staff">{t("admin.role.staff")}</option>
+      <option value="manager">{t("admin.role.manager")}</option>
+      <option value="admin">{t("admin.role.admin")}</option>
     </select>
   );
 }
@@ -245,7 +246,7 @@ function UsersTab({ users, currentUserId }) {
                 <td style={{ padding: "12px 14px" }}><RoleSelect user={u} currentUserId={currentUserId} /></td>
                 <td style={{ padding: "12px 14px" }}>
                   {u.branches === "ALL"
-                    ? <span style={{ font: "500 12.5px/1 var(--font-sans)" }}>All branches</span>
+                    ? <span style={{ font: "500 12.5px/1 var(--font-sans)" }}>{t("admin.allBranches")}</span>
                     : (
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                         {(u.branches || []).slice(0, 3).map((b) => (

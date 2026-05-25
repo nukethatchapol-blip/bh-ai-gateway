@@ -80,7 +80,7 @@ export function AccessScreen({ users, branches, affectedTables = [] }) {
       setDirty(false);
       startTransition(() => router.refresh());
     } else {
-      alert("Save failed");
+      alert(t("access.saveFailed"));
     }
   }
 
@@ -137,7 +137,7 @@ export function AccessScreen({ users, branches, affectedTables = [] }) {
                   {(u2.full_name || u2.email).split(" ")[0]}
                 </div>
                 <div className="mono" style={{ font: "400 9.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 2 }}>
-                  {n === branches.length ? "all" : n} {n === 1 ? "branch" : "branches"}
+                  {n === branches.length ? t("access.all") : n} {n === 1 ? t("access.branch") : t("access.branches")}
                 </div>
               </div>
             </button>

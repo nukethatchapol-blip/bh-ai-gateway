@@ -155,7 +155,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
           <div style={{
             font: "600 14px/1.2 var(--font-sans)", color: "var(--ink)",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>{skill?.name || "New chat"}</div>
+          }}>{skill?.name || t("chat.newChat")}</div>
           <button type="button" onClick={() => setShowBranchPick(true)} style={{
             appearance: "none", border: 0, cursor: "pointer",
             display: "inline-flex", alignItems: "center", gap: 6, marginTop: 4,
@@ -163,12 +163,12 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
             font: "500 10.5px/1 var(--font-mono)",
           }}>
             <Icon name="store" size={10} stroke={1.6} />
-            {scopedBranch ? `${scopedBranch.id} · ${scopedBranch.name}` : `All scope (${authorizedIds.length})`}
+            {scopedBranch ? `${scopedBranch.id} · ${scopedBranch.name}` : t("chat.allScope", { n: authorizedIds.length })}
             <Icon name="chevdown" size={9} />
           </button>
         </div>
         <button type="button" onClick={() => setShowThinking((v) => !v)}
-          title={showThinking ? "Hide all thinking" : "Show all thinking"}
+          title={showThinking ? t("chat.hideThinking") : t("chat.showThinking")}
           style={{
             ...roundBtn(),
             background: showThinking ? "var(--accent-soft)" : "var(--panel)",
@@ -178,7 +178,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
           <Icon name="sparkles" size={14} style={{ color: showThinking ? "var(--accent-ink)" : "var(--muted)" }} />
         </button>
         <button type="button" onClick={shareTranscript} disabled={messages.length === 0}
-          title="Copy the conversation transcript to your clipboard"
+          title={t("chat.shareTooltip")}
           style={{ ...roundBtn(), opacity: messages.length === 0 ? 0.4 : 1 }}>
           <Icon name={shareCopied ? "check" : "upload"} size={14} />
         </button>
@@ -194,7 +194,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
         }}>
           <div style={{ textAlign: "center" }}>
             <Icon name="paperclip" size={32} stroke={1.25} />
-            <div style={{ marginTop: 8 }}>Drop files to attach</div>
+            <div style={{ marginTop: 8 }}>{t("chat.dropFiles")}</div>
             <div className="mono" style={{ font: "400 12px/1 var(--font-mono)", color: "var(--accent-ink)", opacity: 0.7, marginTop: 4 }}>PDF · CSV · XLSX · PNG · JPG · TXT</div>
           </div>
         </div>
@@ -278,7 +278,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
 
             <button type="button" style={composerPill()} onClick={() => setSheet("skill")}>
               <Icon name="sparkles" size={12} style={{ color: "var(--accent)" }} />
-              <span style={{ color: "var(--accent-ink)" }}>{skill?.name || "Skill"}</span>
+              <span style={{ color: "var(--accent-ink)" }}>{skill?.name || t("chat.skill")}</span>
             </button>
 
             <button type="button" style={composerPill()} onClick={() => setSheet("model")}>
@@ -301,14 +301,14 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
       </div>
 
       {sheet === "skill" && (
-        <Sheet title={skill?.name || "Skill"} onClose={() => setSheet(null)}>
+        <Sheet title={skill?.name || t("chat.skill")} onClose={() => setSheet(null)}>
           <SkillList skills={skills} value={skillId}
             onChange={(v) => { setSkillId(v); setSheet(null); }} />
         </Sheet>
       )}
 
       {sheet === "model" && (
-        <Sheet title="Model" onClose={() => setSheet(null)}>
+        <Sheet title={t("chat.model")} onClose={() => setSheet(null)}>
           <ModelList value={modelId}
             onChange={(v) => { setModelId(v); setSheet(null); }} />
         </Sheet>
@@ -337,6 +337,7 @@ function composerPill() {
 
 function FileAttachButton({ onPick }) {
   const ref = useRef(null);
+  const { t } = useLang();
   return (
     <>
       <input
@@ -352,7 +353,7 @@ function FileAttachButton({ onPick }) {
       />
       <button className="btn btn-sm btn-ghost" type="button" onClick={() => ref.current?.click()}>
         <Icon name="paperclip" size={13} style={{ color: "var(--muted)" }} />
-        <span className="chat-attach-label">Attach</span>
+        <span className="chat-attach-label">{t("chat.attach")}</span>
       </button>
     </>
   );
@@ -361,10 +362,11 @@ function FileAttachButton({ onPick }) {
 // Skill picker body (rendered inside a bottom Sheet) — card per skill with
 // the active one highlighted, plus each skill's tools as chips.
 function SkillList({ skills, value, onChange }) {
+  const { t } = useLang();
   return (
     <>
       <div style={{ font: "400 12.5px/1.4 var(--font-sans)", color: "var(--muted)", padding: "0 20px 12px" }}>
-        System prompts maintained by your admin.
+        {t("chat.skillNote")}
       </div>
 
       {skills.map((s) => {
@@ -412,7 +414,7 @@ function SkillList({ skills, value, onChange }) {
         display: "flex", alignItems: "center", gap: 8,
       }}>
         <Icon name="shield" size={13} />
-        Only skills you&apos;ve been granted appear here.
+        {t("chat.skillGranted")}
       </div>
     </>
   );
@@ -454,25 +456,26 @@ function ModelList({ value, onChange }) {
 }
 
 function BranchPickerModal({ branches, value, onClose, onChange, authCount }) {
+  const { t } = useLang();
   const [q, setQ] = useState("");
   const list = useMemo(
     () => branches.filter((b) => !q || b.name.toLowerCase().includes(q.toLowerCase()) || b.id.toLowerCase().includes(q.toLowerCase())),
     [q, branches]
   );
   return (
-    <Modal onClose={onClose} title="Set chat scope" width={520}>
+    <Modal onClose={onClose} title={t("chat.scopeTitle")} width={520}>
       <div style={{ padding: "0 16px 12px" }}>
-        <input className="input" placeholder="Search branches…" value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+        <input className="input" placeholder={t("chat.scopeSearch")} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
       </div>
       <div style={{ maxHeight: 320, overflow: "auto", padding: "0 8px 8px" }}>
-        <ScopeRow active={value === "ALL"} title="All my branches" sub={`${authCount} branches`} icon="globe" onClick={() => onChange("ALL")} />
+        <ScopeRow active={value === "ALL"} title={t("chat.scopeAll")} sub={t("chat.scopeCount", { n: authCount })} icon="globe" onClick={() => onChange("ALL")} />
         {list.map((b) => (
           <ScopeRow key={b.id} active={value === b.id} title={b.name} sub={`${b.id} · ${b.region}`}
             icon="store" onClick={() => onChange(b.id)} />
         ))}
       </div>
       <div style={{ padding: "10px 16px", borderTop: "0.5px solid var(--line)", font: "400 11.5px/1.5 var(--font-mono)", color: "var(--muted)" }}>
-        Scope locks every query and document the AI can read. Branches outside your scope are not visible.
+        {t("chat.scopeNote")}
       </div>
     </Modal>
   );

@@ -37,11 +37,11 @@ export function ApiKeysScreen({ keys }) {
     });
     setEditing(null);
     if (r.ok) startTransition(() => router.refresh());
-    else alert((await r.json()).error || "Save failed");
+    else alert((await r.json()).error || t("apikeys.saveFailed"));
   }
 
   async function revoke(provider) {
-    if (!confirm(`Revoke ${PROVIDER_LABEL[provider]} key?`)) return;
+    if (!confirm(t("apikeys.revokeConfirm", { provider: PROVIDER_LABEL[provider] }))) return;
     await fetch(`/api/apikeys?provider=${provider}`, { method: "DELETE" });
     startTransition(() => router.refresh());
   }
@@ -136,6 +136,7 @@ export function ApiKeysScreen({ keys }) {
 }
 
 function ProviderRow({ provider, row, last, onEdit }) {
+  const { t } = useLang();
   const configured = !!row;
   return (
     <button type="button" onClick={onEdit} style={{
@@ -155,14 +156,14 @@ function ProviderRow({ provider, row, last, onEdit }) {
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ font: "500 14px/1.2 var(--font-sans)" }}>{PROVIDER_LABEL[provider]}</span>
           {configured && (
-            <span className="badge badge-accent" style={{ height: 18 }}><span className="dot" /> active</span>
+            <span className="badge badge-accent" style={{ height: 18 }}><span className="dot" /> {t("apikeys.active")}</span>
           )}
         </div>
         <div className="mono" style={{ font: "400 11px/1 var(--font-mono)", color: "var(--muted)", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {configured ? (
             <>{PROVIDER_PREFIX[provider]}<span style={{ color: "var(--muted-2)" }}>•••••</span>{row.last4 || "fffa"}</>
           ) : (
-            "Gateway routing"
+            t("apikeys.gatewayRouting")
           )}
         </div>
       </div>
@@ -178,15 +179,16 @@ function ProviderRow({ provider, row, last, onEdit }) {
 }
 
 function KeyEditModal({ provider, existing, onClose, onSave, onRemove }) {
+  const { t } = useLang();
   const [key, setKey] = useState("");
   const [show, setShow] = useState(false);
   const [limit, setLimit] = useState(existing?.monthly_cap_usd || 250);
   const [busy, setBusy] = useState(false);
 
   return (
-    <Modal onClose={onClose} title={`${existing ? "Manage" : "Add"} ${PROVIDER_LABEL[provider]} key`} width={520}>
+    <Modal onClose={onClose} title={existing ? t("apikeys.manageKey", { provider: PROVIDER_LABEL[provider] }) : t("apikeys.addKey", { provider: PROVIDER_LABEL[provider] })} width={520}>
       <div style={{ padding: "0 18px 18px" }}>
-        <Field label="API key" hint="Stored AES-256 encrypted. Never visible to other users.">
+        <Field label={t("apikeys.field.key")} hint={t("apikeys.field.keyHint")}>
           <div style={{ position: "relative" }}>
             <input
               className="input mono"
@@ -204,7 +206,7 @@ function KeyEditModal({ provider, existing, onClose, onSave, onRemove }) {
         </Field>
 
         <div style={{ marginTop: 14 }}>
-          <Field label="Monthly cap (USD)">
+          <Field label={t("apikeys.field.cap")}>
             <input className="input tnum mono" type="number" min={0} step={10} value={limit} onChange={(e) => setLimit(Number(e.target.value))} />
           </Field>
         </div>
@@ -215,24 +217,24 @@ function KeyEditModal({ provider, existing, onClose, onSave, onRemove }) {
           font: "400 11.5px/1.55 var(--font-mono)", color: "var(--muted)",
         }}>
           <span style={{ color: "var(--accent-ink)" }}>note · </span>
-          Your key bills directly against your provider account. The gateway only proxies requests and writes audit metadata (no message content).
+          {t("apikeys.modalNote")}
         </div>
 
         <div style={{ display: "flex", justifyContent: existing ? "space-between" : "flex-end", gap: 8, marginTop: 18 }}>
           {existing && onRemove && (
             <button type="button" className="btn btn-ghost" onClick={onRemove} style={{ color: "oklch(0.55 0.18 25)" }}>
-              <Icon name="trash" size={12} /> Remove
+              <Icon name="trash" size={12} /> {t("common.remove")}
             </button>
           )}
           <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn" onClick={onClose}>{t("common.cancel")}</button>
             <button type="button" className="btn btn-primary" disabled={!key || busy}
               onClick={async () => {
                 setBusy(true);
                 await onSave({ key, monthly_cap_usd: limit });
                 setBusy(false);
               }}>
-              {busy ? "Saving…" : "Save"}
+              {busy ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </div>
