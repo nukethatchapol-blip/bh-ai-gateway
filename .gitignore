@@ -10,3 +10,5 @@ import.env
 .turbo
 supabase/.branches
 supabase/.temp
+
+.vercel
