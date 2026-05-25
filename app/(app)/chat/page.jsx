@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ChatScreen } from "@/components/chat-screen";
+import { ChatHome } from "@/components/chat-home";
 
 export default async function ChatPage({ searchParams }) {
   const supabase = await createClient();
@@ -28,9 +29,30 @@ export default async function ChatPage({ searchParams }) {
   const authorizedIds = (access || []).map((a) => a.branch_id);
 
   const params = await searchParams;
+
+  // No `c` query param → render the chat list (home).
+  if (!params?.c) {
+    const { data: chats } = await supabase
+      .from("chats")
+      .select("id, title, skill_id, model_id, branch_scope, pinned, updated_at")
+      .order("pinned", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .limit(40);
+    return (
+      <ChatHome
+        profile={profile}
+        chats={chats || []}
+        skills={skills || []}
+        authorizedCount={authorizedIds.length}
+      />
+    );
+  }
+
+  // A `c` is present → conversation view. Only fetch when it's a real id;
+  // `?c=new` must not run `.eq("id","new").single()` against a uuid column.
   let initialMessages = [];
   let initialChatId = null;
-  if (params?.c) {
+  if (params.c && params.c !== "new") {
     const { data: chat } = await supabase
       .from("chats").select("id, skill_id, model_id, branch_scope")
       .eq("id", params.c).single();
@@ -56,7 +78,8 @@ export default async function ChatPage({ searchParams }) {
       // Remount when the chat changes so initial state re-hydrates —
       // client-side nav between /chat?c=A and /chat?c=B reuses the same
       // component instance otherwise, and useState ignores new props.
-      key={initialChatId || "new"}
+      // `?c=new` still mounts fresh thanks to the param fallback.
+      key={initialChatId || params.c || "new"}
       profile={profile}
       skills={skills || []}
       branches={branches || []}
