@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BEARHOUSE · AI Gateway — Mobile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  html, body { margin: 0; background: #f5efe1; font-family: "Geist", system-ui, sans-serif; color: #1c1611; }
+  * { box-sizing: border-box; }
+  body { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="src/data.jsx"></script>
+<script type="text/babel" src="src/mobile-screens.jsx"></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light"
+}/*EDITMODE-END*/;
+
+function MobileApp() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const dark = t.theme === "dark";
+
+  // Push to module-level so the M Proxy returns the right tokens.
+  setMobileTheme(t.theme);
+
+  // Toggle body color in dark mode
+  React.useEffect(() => {
+    document.body.style.background = dark ? "#0a0805" : "#f5efe1";
+    document.body.style.color = dark ? "#faf2dc" : "#1c1611";
+  }, [dark]);
+
+  return (
+    <>
+      <DesignCanvas title="BEARHOUSE · AI Gateway — Mobile design review"
+        subtitle="iOS · 402×874 · cream/brown system, light + dark. Tap any frame to focus fullscreen.">
+
+        <DCSection id="entry" title="Entry">
+          <DCArtboard id="login" label="01 · Login" width={420} height={900}>
+            <IOSDevice dark><MLogin /></IOSDevice>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="chat-flow" title="Chat — primary daily flow">
+          <DCArtboard id="chat-list" label="02 · Chat home (pinned + recent)" width={420} height={900}>
+            <IOSDevice dark={dark}><MChatList /></IOSDevice>
+          </DCArtboard>
+          <DCArtboard id="chat-conv" label="03 · Active conversation" width={420} height={900}>
+            <IOSDevice dark={dark}><MChatConversation /></IOSDevice>
+          </DCArtboard>
+          <DCArtboard id="chat-picker" label="04 · Skill picker · bottom sheet" width={420} height={900}>
+            <IOSDevice dark={dark}><MChatPicker /></IOSDevice>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="data" title="Data — scoped views">
+          <DCArtboard id="dash" label="05 · Dashboard" width={420} height={900}>
+            <IOSDevice dark={dark}><MDashboard /></IOSDevice>
+          </DCArtboard>
+          <DCArtboard id="datepicker" label="06 · Date range picker · bottom sheet" width={420} height={900}>
+            <IOSDevice dark={dark}><MDatePicker /></IOSDevice>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="admin" title="Admin only">
+          <DCArtboard id="admin" label="07 · Approvals" width={420} height={900}>
+            <IOSDevice dark={dark}><MAdmin /></IOSDevice>
+          </DCArtboard>
+          <DCArtboard id="access" label="08 · Branch access matrix" width={420} height={900}>
+            <IOSDevice dark={dark}><MAccess /></IOSDevice>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="settings" title="Settings">
+          <DCArtboard id="keys" label="09 · API keys" width={420} height={900}>
+            <IOSDevice dark={dark}><MApiKeys /></IOSDevice>
+          </DCArtboard>
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel>
+        <TweakSection label="Theme" />
+        <TweakRadio label="Mode" value={t.theme}
+          options={[{ value: "light", label: "Light" }, { value: "dark", label: "Dark" }]}
+          onChange={v => setTweak("theme", v)} />
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<MobileApp />);
+</script>
+</body>
+</html>
