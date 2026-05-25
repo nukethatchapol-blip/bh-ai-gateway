@@ -17,13 +17,6 @@ function spark(seed, n = 24) {
   return out;
 }
 
-function synthBranchStats(b) {
-  let h = 0;
-  for (let i = 0; i < b.id.length; i++) h = (h * 31 + b.id.charCodeAt(i)) >>> 0;
-  const r = h % 100;
-  return { sales: 80000 + r * 2400, customers: 300 + r * 8, growth: (r % 30) - 10 };
-}
-
 function fmtRange(from, to, lang) {
   // human-friendly compact range, locale-aware
   const f = new Date(from), t = new Date(to);
@@ -59,11 +52,15 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], f
   }, [branches, authorizedIds, scope]);
 
   const stats = useMemo(() => visible.map((b) => {
+    // Use real, date-filtered KPI rows from bearhouse_branch_kpis. Branches with
+    // no sales in the selected range show ฿0 — never fabricated numbers.
     const real = kpiByRef[b.id];
-    if (real) {
-      return { ...b, sales: Number(real.net_revenue || 0), customers: Number(real.bills || 0), growth: 0 };
-    }
-    return { ...b, ...synthBranchStats(b) };
+    return {
+      ...b,
+      sales: Number(real?.net_revenue || 0),
+      customers: Number(real?.bills || 0),
+      growth: 0,
+    };
   }), [visible, kpiByRef]);
 
   const totals = useMemo(() => {
