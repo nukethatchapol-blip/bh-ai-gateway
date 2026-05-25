@@ -292,6 +292,22 @@ a { color: inherit; }
   .login-form { padding: 28px !important; }
 }
 
+/* Login (mobile hero): inputs on the dark brown background */
+.login-input {
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(251, 242, 220, 0.06) !important;
+  border: 1px solid rgba(251, 242, 220, 0.16) !important;
+  color: var(--brand-cream-2) !important;
+  font: 400 15px/1 var(--font-sans);
+}
+.login-input::placeholder { color: rgba(251, 242, 220, 0.4) !important; }
+.login-input:focus {
+  border-color: #e2a55a !important;
+  box-shadow: 0 0 0 3px rgba(226, 165, 90, 0.18) !important;
+}
+.login-input option { color: #1c1308; }
+
 /* Dashboard: KPI grid collapses 4 → 2 → 1, charts stack */
 @media (max-width: 960px) {
   .dash-kpis { grid-template-columns: repeat(2, 1fr) !important; }
