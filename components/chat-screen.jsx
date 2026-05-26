@@ -203,7 +203,7 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
       {/* messages */}
       <div style={{ flex: 1, padding: "12px 16px 24px" }}>
         {messages.length === 0 && (
-          <EmptyChat skill={skill} scope={scopedBranch} />
+          <EmptyChat skill={skill} scope={scopedBranch} onPick={(text) => setDraft(text)} />
         )}
         {messages.map((m, i) => (
           <Message
@@ -499,7 +499,9 @@ function ScopeRow({ active, title, sub, icon, onClick }) {
   );
 }
 
-function EmptyChat({ skill, scope }) {
+function EmptyChat({ skill, scope, onPick }) {
+  const { t } = useLang();
+  const prompts = [t("recents.q1"), t("recents.q2"), t("recents.q3")];
   return (
     <div style={{ padding: "60px 0 20px", textAlign: "center" }}>
       <div style={{
@@ -515,6 +517,35 @@ function EmptyChat({ skill, scope }) {
       </p>
       <div className="mono muted" style={{ font: "400 11.5px/1 var(--font-mono)", marginTop: 16 }}>
         scope · {scope ? scope.name : "all your branches"}
+      </div>
+
+      {/* Quick start: tap to fill the composer so the user can review/edit
+          before sending. Lives in the new-conversation empty state — moved
+          from the chat home list where it had no compose target. */}
+      <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 8, alignItems: "stretch", padding: "0 4px" }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8, justifyContent: "center",
+          font: "500 11px/1 var(--font-mono)", color: "var(--muted)",
+          textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4,
+        }}>
+          <Icon name="sparkles" size={11} />
+          <span>{t("recents.quickStart")}</span>
+        </div>
+        {prompts.map((q, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onPick && onPick(q)}
+            style={{
+              appearance: "none", textAlign: "left", cursor: "pointer",
+              border: "0.5px solid var(--line)", background: "var(--bg-2)",
+              borderRadius: 10, padding: "10px 12px",
+              font: "400 13.5px/1.35 var(--font-sans)", color: "var(--ink-2)",
+            }}
+          >
+            {q}
+          </button>
+        ))}
       </div>
     </div>
   );

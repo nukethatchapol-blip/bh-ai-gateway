@@ -19,8 +19,6 @@ export function ChatHome({ profile, chats = [], skills = [], authorizedCount = 0
   const pinnedShown = pinnedChats.filter(matchesSkill);
   const recentShown = recentChats.filter(matchesSkill);
 
-  const quickStarts = [t("recents.q1"), t("recents.q2"), t("recents.q3")];
-
   return (
     <>
       <NavBar
@@ -80,30 +78,6 @@ export function ChatHome({ profile, chats = [], skills = [], authorizedCount = 0
           </GroupCard>
         </>
       )}
-
-      {/* QUICK START */}
-      <SectionHeader>{t("recents.quickStart")}</SectionHeader>
-      <GroupCard style={{ padding: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8, background: "var(--accent-soft)", color: "var(--accent-ink)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <Icon name="sparkles" size={14} />
-          </div>
-          <div style={{ font: "600 14px/1 var(--font-sans)", color: "var(--ink)" }}>{t("recents.askAnalyst")}</div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {quickStarts.map((q, i) => (
-            <Link key={i} href="/chat?c=new" style={{
-              display: "block", textDecoration: "none",
-              border: "0.5px solid var(--line)", background: "var(--bg-2)",
-              borderRadius: 10, padding: "10px 12px", textAlign: "left",
-              font: "400 13.5px/1.35 var(--font-sans)", color: "var(--ink-2)",
-            }}>{q}</Link>
-          ))}
-        </div>
-      </GroupCard>
 
       <div style={{ height: 16 }} />
     </>
