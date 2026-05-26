@@ -4,6 +4,9 @@
 
 -- 1. Top promotions in a window — uses the dedicated `promotion` table (one
 --    row per bill carrying a promo), not bill_detail_data.
+--    Uses direct timestamptz bounds (no ::date cast) so the composite index
+--    (payment_date, store_name) can do a real range scan; without this the
+--    planner falls back to a full-store scan and the query times out.
 create or replace function public.bearhouse_top_promotions(
   p_from date default ((now() - interval '30 days'))::date,
   p_to   date default (now())::date,
@@ -19,7 +22,8 @@ as $$
   from public.promotion p
   join public.branch br on br.branch_name = p.store_name
   where br.branch_ref in (select public.authorized_branches())
-    and p.payment_date::date between p_from and p_to
+    and p.payment_date >= p_from::timestamptz
+    and p.payment_date <  (p_to + interval '1 day')::timestamptz
     and coalesce(p.void, '') <> 'true'
     and coalesce(p.promotion_name, '') <> ''
   group by p.promotion_name
@@ -31,6 +35,9 @@ grant execute on function public.bearhouse_top_promotions(date, date, int) to au
 
 -- 2. Top products in a window — `product_data` is the bill-line-item table
 --    (menu_name, menu_quantity, discounted_price_net, store_name, payment_dt).
+--    Uses direct timestamptz bounds (no ::date cast) so the composite index
+--    (payment_dt, store_name) does a real range scan; same reason as the
+--    promotion RPC above.
 create or replace function public.bearhouse_top_products(
   p_from date default ((now() - interval '30 days'))::date,
   p_to   date default (now())::date,
@@ -47,7 +54,8 @@ as $$
   from public.product_data p
   join public.branch br on br.branch_name = p.store_name
   where br.branch_ref in (select public.authorized_branches())
-    and p.payment_dt::date between p_from and p_to
+    and p.payment_dt >= p_from::timestamptz
+    and p.payment_dt <  (p_to + interval '1 day')::timestamptz
     and coalesce(p.menu_name, '') <> ''
   group by p.menu_name
   order by net_revenue desc
