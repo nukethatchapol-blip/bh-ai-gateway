@@ -33,7 +33,7 @@ function fmtRange(from, to, lang) {
   return `${fL} – ${tL}`;
 }
 
-export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], kpisPrior = [], daily = [], dailyPrior = [], from, to }) {
+export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], kpisPrior = [], daily = [], dailyPrior = [], promotions = [], products = [], invWatch = [], from, to }) {
   const router = useRouter();
   const { t, lang } = useLang();
   const [scope, setScope] = useState("ALL");
@@ -222,6 +222,91 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
           </div>
         ))}
       </GroupCard>
+
+      {/* === Top promotions === */}
+      {promotions.length > 0 && (
+        <>
+          <SectionHeader>{t("dash.topPromotions")}</SectionHeader>
+          <GroupCard>
+            {promotions.map((p, i) => (
+              <div key={p.promotion_name + i} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
+                borderBottom: i < promotions.length - 1 ? "0.5px solid var(--line-2)" : "none",
+              }}>
+                <span style={{ width: 24, font: "500 12px/1 var(--font-mono)", color: "var(--muted)", flexShrink: 0 }}>{i + 1}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "500 13px/1.3 var(--font-sans)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.promotion_name}</div>
+                  <div className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4 }}>
+                    {Number(p.bills).toLocaleString()} {t("dash.bills")}
+                  </div>
+                </div>
+                <div className="tnum" style={{ font: "600 13px/1 var(--font-mono)", textAlign: "right", flexShrink: 0 }}>
+                  ฿{(Number(p.total_value) / 1000).toFixed(0)}K
+                </div>
+              </div>
+            ))}
+          </GroupCard>
+        </>
+      )}
+
+      {/* === Top products === */}
+      {products.length > 0 && (
+        <>
+          <SectionHeader>{t("dash.topProductsReal")}</SectionHeader>
+          <GroupCard>
+            {products.map((p, i) => (
+              <div key={p.menu_name + i} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
+                borderBottom: i < products.length - 1 ? "0.5px solid var(--line-2)" : "none",
+              }}>
+                <span style={{ width: 24, font: "500 12px/1 var(--font-mono)", color: "var(--muted)", flexShrink: 0 }}>{i + 1}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "500 13px/1.3 var(--font-sans)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.menu_name}</div>
+                  <div className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4, display: "flex", gap: 6 }}>
+                    {p.category && <span>{p.category}</span>}
+                    {p.category && <span style={{ color: "var(--muted-2)" }}>·</span>}
+                    <span>{t("dash.units.sold", { n: Number(p.qty).toLocaleString() })}</span>
+                  </div>
+                </div>
+                <div className="tnum" style={{ font: "600 13px/1 var(--font-mono)", textAlign: "right", flexShrink: 0 }}>
+                  ฿{(Number(p.net_revenue) / 1000).toFixed(0)}K
+                </div>
+              </div>
+            ))}
+          </GroupCard>
+        </>
+      )}
+
+      {/* === Inventory watch === */}
+      {invWatch.length > 0 && (
+        <>
+          <SectionHeader>{t("dash.inventoryWatch")}</SectionHeader>
+          <GroupCard>
+            {invWatch.map((it, i) => (
+              <div key={it.inventory_name + it.branch_name + i} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "12px 14px",
+                borderBottom: i < invWatch.length - 1 ? "0.5px solid var(--line-2)" : "none",
+              }}>
+                <Icon name="store" size={14} stroke={1.6} style={{ color: "var(--accent)", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ font: "500 13px/1.3 var(--font-sans)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.inventory_name}</div>
+                  <div className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {it.branch_name}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div className="tnum" style={{ font: "600 13px/1 var(--font-mono)", color: "var(--accent-ink)" }}>
+                    {Number(it.order_recommend_95).toLocaleString(undefined, { maximumFractionDigits: 0 })} {it.unit}
+                  </div>
+                  <div className="mono" style={{ font: "400 10px/1 var(--font-mono)", color: "var(--muted)", marginTop: 3 }}>
+                    forecast {Number(it.forecast_qty).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </GroupCard>
+        </>
+      )}
 
       <div style={{ height: 16 }} />
 

@@ -28,6 +28,7 @@ export default async function DashboardPage({ searchParams }) {
     { data: profile }, { data: branches }, { data: access },
     { data: kpis }, { data: kpisPrior },
     { data: daily }, { data: dailyPrior },
+    { data: promotions }, { data: products }, { data: invWatch },
   ] = await Promise.all([
     supabase.from("profiles").select("id, role").eq("id", user.id).single(),
     supabase.from("branches").select("*").order("name"),
@@ -36,6 +37,9 @@ export default async function DashboardPage({ searchParams }) {
     supabase.rpc("bearhouse_branch_kpis",  { p_from: prevFrom, p_to: prevTo }),
     supabase.rpc("bearhouse_daily_revenue", { p_from: from,     p_to: to }),
     supabase.rpc("bearhouse_daily_revenue", { p_from: prevFrom, p_to: prevTo }),
+    supabase.rpc("bearhouse_top_promotions", { p_from: from, p_to: to, p_limit: 6 }),
+    supabase.rpc("bearhouse_top_products",   { p_from: from, p_to: to, p_limit: 6 }),
+    supabase.rpc("bearhouse_inventory_watch", { p_limit: 6 }),
   ]);
   const authorizedIds = (access || []).map((a) => a.branch_id);
 
@@ -48,6 +52,9 @@ export default async function DashboardPage({ searchParams }) {
       kpisPrior={kpisPrior || []}
       daily={daily || []}
       dailyPrior={dailyPrior || []}
+      promotions={promotions || []}
+      products={products || []}
+      invWatch={invWatch || []}
       from={from}
       to={to}
     />
