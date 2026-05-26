@@ -37,8 +37,6 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
   const router = useRouter();
   const { t, lang } = useLang();
   const [scope, setScope] = useState("ALL");
-  const [fromVal, setFromVal] = useState(from);
-  const [toVal,   setToVal]   = useState(to);
   const [dateSheet, setDateSheet] = useState(false);
 
   function applyRange(nextFrom, nextTo) {
@@ -72,12 +70,29 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
       ...b,
       sales,
       customers: Number(real?.bills || 0),
-      growth: pctDelta(sales, priorSales) ?? 0,
+      // null = no prior baseline → render as "new", not as +0.0%.
+      growth: pctDelta(sales, priorSales),
     };
   }), [visible, kpiByRef, kpiPriorByRef]);
 
-  const cur = useMemo(() => sumDaily(daily), [daily]);
-  const prev = useMemo(() => sumDaily(dailyPrior), [dailyPrior]);
+  // Fallback totals from per-branch kpis (in case the daily RPC is not yet
+  // deployed). Without this, Revenue/Bills/AOV/Member% would show ฿0 while
+  // the leaderboard underneath shows real per-branch numbers — confusing.
+  const kpiTotals = useMemo(() => kpis.reduce(
+    (a, k) => ({ rev: a.rev + Number(k.net_revenue || 0), bills: a.bills + Number(k.bills || 0) }),
+    { rev: 0, bills: 0 }
+  ), [kpis]);
+  const kpiPriorTotals = useMemo(() => kpisPrior.reduce(
+    (a, k) => ({ rev: a.rev + Number(k.net_revenue || 0), bills: a.bills + Number(k.bills || 0) }),
+    { rev: 0, bills: 0 }
+  ), [kpisPrior]);
+  const fromKpiTotals = (t) => ({
+    rev: t.rev, bills: t.bills, member: 0,
+    aov: t.bills ? t.rev / t.bills : 0,
+    memberPct: 0,
+  });
+  const cur  = useMemo(() => daily.length      ? sumDaily(daily)      : fromKpiTotals(kpiTotals),      [daily, kpiTotals]);
+  const prev = useMemo(() => dailyPrior.length ? sumDaily(dailyPrior) : fromKpiTotals(kpiPriorTotals), [dailyPrior, kpiPriorTotals]);
 
   // Daily arrays for the chart + sparklines (chronological).
   const series = useMemo(() => {
@@ -92,14 +107,19 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
 
   const totals = { sales: cur.rev, customers: cur.bills, aov: cur.aov, memberPct: cur.memberPct };
 
-  const rangeLabel = fmtRange(fromVal, toVal, lang);
+  const rangeLabel = fmtRange(from, to, lang);
 
   const topBranches = useMemo(() => [...stats].sort((a, b) => b.sales - a.sales).slice(0, 8), [stats]);
 
   const dRevenue = fmtDelta(pctDelta(cur.rev, prev.rev), t);
   const dBills   = fmtDelta(pctDelta(cur.bills, prev.bills), t);
   const dAov     = fmtDelta(pctDelta(cur.aov, prev.aov), t);
-  const dMember  = fmtDelta(pctDelta(cur.memberPct, prev.memberPct), t);
+  // Member % is itself a percentage — compare in percentage POINTS, not
+  // relative % (a 30→35% jump is +5 pp, not +16.7%).
+  const dMemberPP = cur.memberPct - prev.memberPct;
+  const dMember = (prev.bills === 0)
+    ? { text: t("dash.deltaNew"), neg: false }
+    : { text: `${dMemberPP >= 0 ? "+" : ""}${dMemberPP.toFixed(1)} pp`, neg: dMemberPP < 0 };
 
   const kpiCards = [
     { label: t("dash.kpi.revenue"),  value: `฿${(totals.sales / 1000).toFixed(0)}K`, delta: dRevenue.text, neg: dRevenue.neg, data: series.revenue },
@@ -192,9 +212,11 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
               <div className="tnum" style={{ font: "600 13px/1 var(--font-mono)" }}>฿{(b.sales / 1000).toFixed(0)}K</div>
               <div className="mono tnum" style={{
                 font: "500 11px/1 var(--font-mono)", marginTop: 4,
-                color: b.growth >= 0 ? "var(--accent-ink)" : "oklch(0.55 0.18 25)",
+                color: (b.growth === null || b.growth >= 0) ? "var(--accent-ink)" : "oklch(0.55 0.18 25)",
               }}>
-                {b.growth >= 0 ? "+" : ""}{b.growth.toFixed(1)}%
+                {b.growth === null
+                  ? t("dash.deltaNew")
+                  : `${b.growth >= 0 ? "+" : ""}${b.growth.toFixed(1)}%`}
               </div>
             </div>
           </div>
@@ -206,11 +228,11 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
       {/* Task 11: date-range bottom sheet mounts here */}
       {dateSheet && (
         <DateRangeSheet
-          from={fromVal}
-          to={toVal}
+          from={from}
+          to={to}
           lang={lang}
           onClose={() => setDateSheet(false)}
-          onApply={(f, tt) => { setFromVal(f); setToVal(tt); setDateSheet(false); applyRange(f, tt); }}
+          onApply={(f, tt) => { setDateSheet(false); applyRange(f, tt); }}
         />
       )}
     </>
