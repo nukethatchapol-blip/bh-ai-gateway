@@ -131,6 +131,17 @@ function ChatRow({ chat, skills, last }) {
     if (r.ok) router.refresh();
   }
 
+  async function deleteChat(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (busy) return;
+    if (!confirm(t("recents.deleteConfirm"))) return;
+    setBusy(true);
+    const r = await fetch(`/api/chats/${chat.id}`, { method: "DELETE" });
+    setBusy(false);
+    if (r.ok) router.refresh();
+  }
+
   return (
     <div style={{ position: "relative", borderBottom: last ? "none" : "0.5px solid var(--line-2)" }}>
       <Link href={`/chat?c=${chat.id}`} style={{
@@ -169,6 +180,21 @@ function ChatRow({ chat, skills, last }) {
             )}
           </div>
         </div>
+        <button
+          type="button"
+          onClick={deleteChat}
+          disabled={busy}
+          aria-label={t("recents.delete")}
+          title={t("recents.delete")}
+          style={{
+            width: 30, height: 30, borderRadius: 999, border: 0, flexShrink: 0,
+            background: "transparent", cursor: "pointer",
+            color: "var(--muted-2)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <Icon name="trash" size={13} stroke={1.5} />
+        </button>
         <button
           type="button"
           onClick={togglePin}
