@@ -12,3 +12,6 @@ supabase/.branches
 supabase/.temp
 
 .vercel
+
+# e2e test artifacts (screenshots) — local-only
+test-results/
