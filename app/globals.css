@@ -308,6 +308,22 @@ a { color: inherit; }
 }
 .login-input option { color: #1c1308; }
 
+/* Light variant for the redesigned cream-bg login form. */
+.login-input-light {
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(58, 42, 22, 0.16) !important;
+  color: #2a1d0e !important;
+  font: 400 15px/1 var(--font-sans);
+}
+.login-input-light::placeholder { color: rgba(58, 42, 22, 0.4) !important; }
+.login-input-light:focus {
+  border-color: #d98a3d !important;
+  box-shadow: 0 0 0 3px rgba(217, 138, 61, 0.18) !important;
+}
+.login-input-light option { color: #1c1308; background: #fff; }
+
 /* Dashboard: KPI grid collapses 4 → 2 → 1, charts stack */
 @media (max-width: 960px) {
   .dash-kpis { grid-template-columns: repeat(2, 1fr) !important; }

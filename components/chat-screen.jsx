@@ -135,6 +135,20 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
 
   const sendDisabled = !(draft.trim() || attached.length);
 
+  // Slash-command skill picker. If the draft is /-prefixed with no space yet,
+  // open a menu of matching skills. Selecting commits the skill and clears
+  // the trigger so the user can keep typing their actual message.
+  const slashMatch = /^\/(\S*)$/.exec(draft);
+  const slashQuery = slashMatch ? slashMatch[1].toLowerCase() : null;
+  const slashOpen = slashQuery !== null;
+  const skillMatches = slashOpen
+    ? skills.filter((s) => s.name.toLowerCase().includes(slashQuery) || (s.id || "").toLowerCase().includes(slashQuery))
+    : [];
+  function pickSkillFromSlash(id) {
+    setSkillId(id);
+    setDraft("");
+  }
+
   return (
     <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -225,9 +239,88 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
         background: "var(--composer-bg)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderTop: "0.5px solid var(--line)",
       }}>
+        {/* Slash-command skill menu (Claude-desktop style). Renders above the
+            composer panel when the draft is /-prefixed with no space yet. */}
+        {slashOpen && (
+          <div style={{
+            background: "var(--panel)", border: "0.5px solid var(--line)",
+            borderRadius: 16, overflow: "hidden", marginBottom: 8,
+            boxShadow: "0 -8px 30px rgba(0,0,0,.14), 0 2px 8px rgba(0,0,0,.06)",
+          }}>
+            <div style={{
+              padding: "9px 14px 7px", display: "flex", alignItems: "center", gap: 7,
+              borderBottom: "0.5px solid var(--line-2)",
+            }}>
+              <span className="mono" style={{
+                font: "600 11px/1 var(--font-mono)", color: "var(--accent-ink)",
+                background: "var(--accent-soft)", padding: "3px 6px", borderRadius: 5,
+              }}>/</span>
+              <span className="mono" style={{
+                font: "500 11.5px/1 var(--font-mono)", color: "var(--muted)",
+                letterSpacing: ".04em", textTransform: "uppercase",
+              }}>
+                {t("chat.skillsMatch", { n: skillMatches.length, s: skillMatches.length !== 1 ? "es" : "" })}
+              </span>
+            </div>
+            {skillMatches.length === 0 && (
+              <div style={{ padding: "16px 14px", font: "400 13px/1.4 var(--font-sans)", color: "var(--muted)", textAlign: "center" }}>
+                {t("chat.noSkillMatch", { q: slashQuery })}
+              </div>
+            )}
+            {skillMatches.map((s, i) => {
+              const sel = i === 0;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => pickSkillFromSlash(s.id)}
+                  style={{
+                    width: "100%", appearance: "none", border: 0, cursor: "pointer", textAlign: "left",
+                    display: "flex", alignItems: "flex-start", gap: 11, padding: "11px 14px",
+                    background: sel ? "var(--accent-soft)" : "transparent",
+                    borderBottom: i < skillMatches.length - 1 ? "0.5px solid var(--line-2)" : "none",
+                  }}
+                >
+                  <span style={{
+                    width: 30, height: 30, borderRadius: 9, flexShrink: 0, marginTop: 1,
+                    background: sel ? "rgba(255,255,255,.5)" : "var(--bg-2)",
+                    color: sel ? "var(--accent-ink)" : "var(--muted)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <Icon name="sparkles" size={15} />
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <span style={{ font: "600 14px/1.2 var(--font-sans)", color: sel ? "var(--accent-ink)" : "var(--ink)" }}>{s.name}</span>
+                    </div>
+                    {s.description && (
+                      <div style={{
+                        font: "400 12px/1.4 var(--font-sans)", marginTop: 3,
+                        color: sel ? "var(--accent-ink)" : "var(--muted)",
+                        opacity: sel ? 0.85 : 1,
+                        overflow: "hidden", textOverflow: "ellipsis",
+                        display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                      }}>{s.description}</div>
+                    )}
+                  </div>
+                  {sel && (
+                    <span className="mono" style={{
+                      flexShrink: 0, alignSelf: "center",
+                      font: "500 10px/1 var(--font-mono)", color: "var(--accent-ink)",
+                      border: "0.5px solid var(--accent-ink)", borderRadius: 5, padding: "3px 5px", opacity: 0.7,
+                    }}>↵</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div ref={composerRef} style={{
-          background: "var(--panel)", border: "0.5px solid var(--line)",
+          background: "var(--panel)",
+          border: `0.5px solid ${slashOpen ? "var(--accent)" : "var(--line)"}`,
           borderRadius: 22, boxShadow: "0 4px 16px rgba(0,0,0,.04)",
+          transition: "border-color 120ms ease",
         }}>
           {attached.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "10px 12px 0" }}>
@@ -254,6 +347,13 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
+              // Slash menu: Enter (no shift) commits the first match.
+              if (slashOpen && e.key === "Enter" && !e.shiftKey && skillMatches.length > 0) {
+                e.preventDefault();
+                pickSkillFromSlash(skillMatches[0].id);
+                return;
+              }
+              // Cmd/Ctrl+Enter sends.
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 send();
@@ -276,8 +376,13 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
               ])
             } />
 
-            <button type="button" style={composerPill()} onClick={() => setSheet("skill")}>
-              <Icon name="sparkles" size={12} style={{ color: "var(--accent)" }} />
+            <button
+              type="button"
+              style={composerPill()}
+              onClick={() => setDraft("/")}
+              title={t("chat.slashHint")}
+            >
+              <span className="mono" style={{ font: "600 13px/1 var(--font-mono)", color: "var(--accent-ink)" }}>/</span>
               <span style={{ color: "var(--accent-ink)" }}>{skill?.name || t("chat.skill")}</span>
             </button>
 
@@ -298,14 +403,15 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
             </button>
           </div>
         </div>
-      </div>
 
-      {sheet === "skill" && (
-        <Sheet title={skill?.name || t("chat.skill")} onClose={() => setSheet(null)}>
-          <SkillList skills={skills} value={skillId}
-            onChange={(v) => { setSkillId(v); setSheet(null); }} />
-        </Sheet>
-      )}
+        {/* Slash hint */}
+        <div className="mono" style={{
+          textAlign: "center", marginTop: 7,
+          font: "400 11px/1 var(--font-mono)", color: "var(--muted-2)",
+        }}>
+          {slashOpen ? t("chat.slashFilter") : t("chat.slashHint")}
+        </div>
+      </div>
 
       {sheet === "model" && (
         <Sheet title={t("chat.model")} onClose={() => setSheet(null)}>
