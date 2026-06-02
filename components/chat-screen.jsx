@@ -150,14 +150,13 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
   }
 
   return (
-    <div style={{ minHeight: "100%", display: "flex", flexDirection: "column" }}
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}>
 
-      {/* compact top bar */}
+      {/* compact top bar — stays at the top of the chat root naturally */}
       <div style={{
-        position: "sticky", top: 0, zIndex: 15,
         padding: "8px 14px 10px", display: "flex", alignItems: "center", gap: 10,
         borderBottom: "0.5px solid var(--line-2)", flexShrink: 0,
         background: "var(--composer-bg)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
@@ -214,8 +213,8 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
         </div>
       )}
 
-      {/* messages */}
-      <div style={{ flex: 1, padding: "12px 16px 24px" }}>
+      {/* messages — own scroll container so the composer can sit in flow below */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 16px 24px" }}>
         {messages.length === 0 && (
           <EmptyChat skill={skill} scope={scopedBranch} onPick={(text) => setDraft(text)} />
         )}
@@ -231,11 +230,11 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
         ))}
       </div>
 
-      {/* sticky composer — pinned just above the bottom tab bar so the two
-          never overlap (the tab bar owns the bottom safe-area). */}
+      {/* composer — sits in flow at the bottom of the chat root, which is
+          itself height:100% of .m-scroll, so the composer always pins to the
+          top of the tab bar without relying on sticky-in-flex. */}
       <div style={{
-        position: "sticky", bottom: "var(--tabbar-h)", zIndex: 20,
-        padding: "10px 12px 10px",
+        flexShrink: 0, padding: "10px 12px 10px",
         background: "var(--composer-bg)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
         borderTop: "0.5px solid var(--line)",
       }}>
