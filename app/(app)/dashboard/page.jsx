@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { DashboardScreen } from "@/components/dashboard-screen";
 
 function safeDate(s, fallback) {
@@ -21,7 +22,9 @@ export default async function DashboardPage({ searchParams }) {
   const prevFrom = new Date(fromMs - 86400000 - lenMs).toISOString().slice(0, 10);
 
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // getCurrentUser is cached via React.cache, so this is FREE — the layout
+  // above already fetched it. Same for the profile lookup further below.
+  const user = await getCurrentUser();
 
   // Independent — one round trip (functions co-located with the DB in sin1).
   const [

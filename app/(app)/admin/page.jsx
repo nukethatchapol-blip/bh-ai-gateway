@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser, getCurrentProfile } from "@/lib/auth";
 import { AdminScreen } from "@/components/admin-screen";
 
 export default async function AdminPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const user = await getCurrentUser(); // cached
+  const me = await getCurrentProfile(); // cached — already includes `role`
   if (me?.role !== "admin") redirect("/chat");
 
   const [{ data: pending }, { data: users }, { data: skills }, { data: audit }] = await Promise.all([

@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { AccessScreen } from "@/components/access-screen";
 
 export default async function AccessPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const me = await getCurrentProfile(); // cached — already includes `role`
   if (me?.role !== "admin") redirect("/chat");
 
   const [{ data: users }, { data: branches }, { data: access }, tablesResp] = await Promise.all([

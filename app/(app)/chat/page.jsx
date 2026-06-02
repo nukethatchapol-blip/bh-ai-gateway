@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { ChatScreen } from "@/components/chat-screen";
 import { ChatHome } from "@/components/chat-home";
 
 export default async function ChatPage({ searchParams }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser(); // cached across layout+page
 
   // Independent queries — run in parallel rather than four sequential
   // round trips to the (Singapore) DB.

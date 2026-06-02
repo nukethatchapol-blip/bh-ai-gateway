@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
 import { ApiKeysScreen } from "@/components/apikeys-screen";
 
 export default async function ApiKeysPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getCurrentUser(); // cached
   const { data: keys } = await supabase
     .from("api_keys")
     .select("id, provider, last4, monthly_cap_usd, spend_usd, active, created_at")
