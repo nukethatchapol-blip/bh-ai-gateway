@@ -148,6 +148,36 @@ export function LoginScreen({ branches = [] }) {
                 marginTop: 14, maxWidth: 280, color: "rgba(58,42,22,.62)",
               }}>{t("login.subhead")}</p>
 
+              {/* "What's new" pill — pre-login signal that the redesign is live.
+                  Uses peach gradient from Phase B so the user sees the new
+                  palette before authenticating. */}
+              <div
+                className="mono"
+                style={{
+                  marginTop: 16,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "7px 13px",
+                  borderRadius: 999,
+                  background: "var(--peach-grad)",
+                  color: "#3a230f",
+                  font: "600 11px/1 var(--font-mono)",
+                  letterSpacing: ".06em",
+                  boxShadow: "0 6px 18px -10px rgba(238, 154, 100, .6)",
+                }}
+              >
+                <span style={{
+                  width: 16, height: 16, borderRadius: 999,
+                  background: "rgba(255,255,255,.4)",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  font: "700 9px/1 var(--font-mono)",
+                }}>
+                  NEW
+                </span>
+                {t("login.whatsNew")}
+              </div>
+
               {/* email form — collapses until the user opts in */}
               {showForm && (
                 <form onSubmit={mode === "login" ? submitLogin : submitRegister}
