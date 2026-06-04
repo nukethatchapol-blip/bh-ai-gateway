@@ -165,6 +165,34 @@ export function AccessScreen({ users, branches, affectedTables = [] }) {
         </div>
       </GroupCard>
 
+      {/* Global "Select all branches" toggle — saves the per-region click loop. */}
+      <div style={{
+        margin: "0 16px 6px", padding: "10px 14px", display: "flex",
+        alignItems: "center", justifyContent: "space-between", flexShrink: 0,
+        background: "var(--accent-soft)", color: "var(--accent-ink)",
+        borderRadius: 10, font: "500 13px/1.2 var(--font-sans)",
+      }}>
+        <span>
+          {userScope.size === branches.length
+            ? t("access.allGranted") || "All branches granted"
+            : t("access.selectAllHint") || `Select all ${branches.length} branches at once`}
+        </span>
+        <button
+          type="button"
+          onClick={() => setAll(branches.map((b) => b.id), userScope.size !== branches.length)}
+          style={{
+            appearance: "none", border: "0.5px solid var(--accent-ink)",
+            background: "transparent", color: "var(--accent-ink)",
+            font: "600 12px/1 var(--font-sans)", padding: "6px 12px",
+            borderRadius: 999, cursor: "pointer",
+          }}
+        >
+          {userScope.size === branches.length
+            ? (t("access.revokeAll") || "Revoke all")
+            : (t("access.grantAll") || "Select all")}
+        </button>
+      </div>
+
       {/* region-grouped branch toggle list */}
       {regionGroups.map(([region, regionBranches]) => {
         const ids = regionBranches.map((b) => b.id);
