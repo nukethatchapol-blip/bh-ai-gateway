@@ -437,3 +437,9 @@ a { color: inherit; }
   animation: sheet-up 240ms cubic-bezier(.4,.0,.2,1);
 }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* Skeleton loading shimmer used by the per-route loading components. */
+@keyframes bh-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
