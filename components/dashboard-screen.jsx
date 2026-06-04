@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Icon, Sparkline, Avatar } from "./ui";
 import { NavBar, SectionHeader, GroupCard, roundBtn, Sheet } from "./mobile-ui";
 import { useLang } from "./lang-context";
+import { StrategyPanel } from "./strategy-panel";
 
 function sumDaily(rows) {
   let rev = 0, bills = 0, member = 0;
@@ -175,6 +176,9 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
           <span>{t("dash.scopeBanner", { n: visible.length, total: branches.length })}</span>
         </div>
       )}
+
+      {/* "What changed this month" — AI-flavored insights from /api/insights/monthly */}
+      <StrategyPanel from={from} to={to} />
 
       {/* KPI cards grid */}
       <div style={{ padding: "0 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

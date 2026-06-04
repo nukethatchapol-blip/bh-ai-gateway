@@ -10,6 +10,7 @@ export function TabBar({ role }) {
   const tabs = [
     { id: "chat", href: "/chat", icon: "chat", label: t("nav.chat") },
     { id: "dashboard", href: "/dashboard", icon: "dashboard", label: t("nav.dashboard") },
+    { id: "activity", href: "/activity", icon: "bolt", label: t("nav.activity") },
     ...(role === "admin" ? [{ id: "admin", href: "/admin", icon: "shield", label: t("nav.admin") }] : []),
     { id: "settings", href: "/settings", icon: "cog", label: t("nav.settings") },
   ];

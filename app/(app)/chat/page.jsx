@@ -76,6 +76,7 @@ export default async function ChatPage({ searchParams }) {
       authorizedIds={authorizedIds}
       initialMessages={initialMessages}
       initialChatId={initialChatId}
+      initialDraft={typeof params?.q === "string" ? params.q : ""}
     />
   );
 }

@@ -10,12 +10,14 @@ import {
 import { Sheet, roundBtn } from "./mobile-ui";
 import { useLang } from "./lang-context";
 
-export function ChatScreen({ profile, skills, branches, authorizedIds, initialMessages = [], initialChatId = null }) {
+export function ChatScreen({ profile, skills, branches, authorizedIds, initialMessages = [], initialChatId = null, initialDraft = "" }) {
   const { t } = useLang();
   const [skillId, setSkillId] = useState(skills[0]?.id || "data-analyst");
   const [modelId, setModelId] = useState("claude-4.5-s");
   const [branchScope, setBranchScope] = useState("ALL");
-  const [draft, setDraft] = useState("");
+  // initialDraft lets external pages (e.g. Strategy panel "Ask in chat") seed
+  // the composer with a starter question. Empty string for normal entry.
+  const [draft, setDraft] = useState(initialDraft);
   const [attached, setAttached] = useState([]);
   const [dragging, setDragging] = useState(false);
   const [messages, setMessages] = useState(initialMessages);

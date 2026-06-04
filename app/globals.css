@@ -22,6 +22,26 @@
   --row: 36px;
   --pad-x: 16px;
   --pad-y: 12px;
+
+  /* Peach/orange palette — from the Activity Overview / Strategy panel
+     redesign. Used opt-in via peach-* classes / inline styles. Will graduate
+     to the primary palette in a later phase. */
+  --peach-a: #f6bd8f;
+  --peach-b: #ee9a64;
+  --peach-ink: #5a3417;        /* dark warm ink that sits well on peach */
+  --peach-deep-ink: #3a230f;   /* even deeper, used for hero headlines */
+  --peach-grad: linear-gradient(135deg, var(--peach-a) 0%, var(--peach-b) 100%);
+  --peach-stack-1: #fbe4d0;    /* light stacked shadow #1 */
+  --peach-stack-2: #f9d8bd;    /* light stacked shadow #2 */
+  --green-ok: #3a9b76;         /* used by Strategy "opportunity" cards */
+}
+
+:root[data-theme="dark"] {
+  /* Peach palette dark mode — slightly desaturated/darker so it doesn't burn */
+  --peach-a: #e8a878;
+  --peach-b: #d98a52;
+  --peach-stack-1: #241c14;
+  --peach-stack-2: #2e2418;
 }
 
 :root[data-theme="light"],
