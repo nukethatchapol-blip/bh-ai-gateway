@@ -359,8 +359,101 @@ function SkillField({ label, children }) {
 function AuditTab({ audit }) {
   const fmt = (t) => t ? new Date(t).toLocaleString() : "—";
   const { t } = useLang();
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all"); // all|ok|denied
+
+  const ql = q.trim().toLowerCase();
+  const visible = audit.filter((e) => {
+    if (statusFilter !== "all" && e.status !== statusFilter) return false;
+    if (!ql) return true;
+    return (
+      (e.action || "").toLowerCase().includes(ql) ||
+      (e.model || "").toLowerCase().includes(ql) ||
+      (e.scope || "").toLowerCase().includes(ql) ||
+      (e.user_id || "").toLowerCase().includes(ql)
+    );
+  });
+
+  const totalTokens = visible.reduce((a, e) => a + (Number(e.tokens) || 0), 0);
+
+  function exportCSV() {
+    const header = ["time", "user_id", "action", "scope", "model", "tokens", "status"];
+    const rows = visible.map((e) => [
+      e.created_at || "",
+      e.user_id || "",
+      e.action || "",
+      e.scope || "",
+      e.model || "",
+      e.tokens || 0,
+      e.status || "",
+    ]);
+    const csv = [header, ...rows]
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `audit-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   return (
-    <div style={{ padding: "0 16px" }}>
+    <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+      {/* summary + controls */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="mono" style={{
+          padding: "6px 10px", borderRadius: 8, background: "var(--bg-2)",
+          font: "500 11px/1 var(--font-mono)", color: "var(--ink-2)",
+        }}>
+          {visible.length}/{audit.length} events · {totalTokens.toLocaleString()} tokens
+        </div>
+        <div style={{ flex: 1 }} />
+        {["all", "ok", "denied"].map((s) => (
+          <button key={s} type="button" onClick={() => setStatusFilter(s)} style={{
+            appearance: "none", border: 0, cursor: "pointer", height: 28, padding: "0 10px", borderRadius: 7,
+            font: `${statusFilter === s ? 600 : 500} 11px/1 var(--font-mono)`,
+            background: statusFilter === s ? "var(--ink)" : "var(--bg-2)",
+            color: statusFilter === s ? "var(--bg)" : "var(--muted)",
+            textTransform: "uppercase", letterSpacing: ".05em",
+          }}>{s}</button>
+        ))}
+        <button type="button" onClick={exportCSV} title="Export filtered rows as CSV" style={{
+          appearance: "none", border: "0.5px solid var(--line)", cursor: "pointer",
+          height: 28, padding: "0 10px", borderRadius: 7, background: "var(--panel)",
+          color: "var(--ink-2)", font: "500 11px/1 var(--font-mono)",
+          display: "inline-flex", alignItems: "center", gap: 5,
+        }}>
+          <Icon name="download" size={11} stroke={1.6} /> CSV
+        </button>
+      </div>
+
+      <div style={{
+        height: 36, borderRadius: 8, background: "var(--bg-2)",
+        display: "flex", alignItems: "center", padding: "0 10px", gap: 6,
+      }}>
+        <Icon name="search" size={13} stroke={1.5} style={{ color: "var(--muted)" }} />
+        <input
+          type="search"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Filter by action, model, scope, or user id…"
+          style={{
+            flex: 1, border: 0, outline: 0, background: "transparent",
+            color: "var(--ink)", font: "400 13px/1 var(--font-sans)",
+          }}
+        />
+        {q && (
+          <button type="button" onClick={() => setQ("")} aria-label="Clear" style={{
+            appearance: "none", border: 0, background: "transparent", cursor: "pointer",
+            color: "var(--muted-2)", display: "flex", padding: 0,
+          }}><Icon name="close" size={11} stroke={1.8} /></button>
+        )}
+      </div>
+
       <GroupCard style={{ margin: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", font: "400 12.5px/1.4 var(--font-sans)", minWidth: 680 }}>
           <thead>
@@ -376,8 +469,8 @@ function AuditTab({ audit }) {
             </tr>
           </thead>
           <tbody className="mono tnum" style={{ font: "400 12px/1.4 var(--font-mono)" }}>
-            {audit.map((e, i) => (
-              <tr key={e.id} style={{ borderBottom: i < audit.length - 1 ? "0.5px solid var(--line-2)" : "none" }}>
+            {visible.map((e, i) => (
+              <tr key={e.id} style={{ borderBottom: i < visible.length - 1 ? "0.5px solid var(--line-2)" : "none" }}>
                 <td style={{ padding: "10px 14px", color: "var(--muted)", whiteSpace: "nowrap" }}>{fmt(e.created_at)}</td>
                 <td style={{ padding: "10px 14px", color: "var(--ink)" }}>{e.user_id?.slice(0, 6) || "—"}</td>
                 <td style={{ padding: "10px 14px", color: e.status === "denied" ? "oklch(0.55 0.18 25)" : "var(--ink-2)" }}>{e.action}</td>
@@ -391,8 +484,10 @@ function AuditTab({ audit }) {
                 </td>
               </tr>
             ))}
-            {audit.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>{t("admin.noEvents")}</td></tr>
+            {visible.length === 0 && (
+              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "var(--muted)" }}>
+                {audit.length === 0 ? t("admin.noEvents") : "No events match the current filter"}
+              </td></tr>
             )}
           </tbody>
         </table>

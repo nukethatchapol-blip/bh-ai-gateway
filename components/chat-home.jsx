@@ -42,14 +42,17 @@ function shortSkillLabel(name = "") {
 export function ChatHome({ profile, chats = [], skills = [], authorizedCount = 0 }) {
   const { t } = useLang();
   const [activeSkill, setActiveSkill] = useState("all");
+  const [query, setQuery] = useState(""); // BR-M4 — wire the search bar
 
   const isDark = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark";
 
   const pinnedChats = chats.filter((c) => c.pinned === true);
   const recentChats = chats.filter((c) => !c.pinned);
   const matchesSkill = (c) => activeSkill === "all" || c.skill_id === activeSkill;
-  const pinnedShown = pinnedChats.filter(matchesSkill);
-  const recentShown = recentChats.filter(matchesSkill);
+  const q = query.trim().toLowerCase();
+  const matchesQuery = (c) => !q || (c.title || "").toLowerCase().includes(q);
+  const pinnedShown = pinnedChats.filter(matchesSkill).filter(matchesQuery);
+  const recentShown = recentChats.filter(matchesSkill).filter(matchesQuery);
 
   return (
     <>
@@ -69,14 +72,36 @@ export function ChatHome({ profile, chats = [], skills = [], authorizedCount = 0
         }
       />
 
-      {/* visual search (not wired) */}
+      {/* Working search — filters the loaded chats by title (case-insensitive). */}
       <div style={{ padding: "4px 16px 12px", flexShrink: 0 }}>
         <div style={{
           height: 38, borderRadius: 11, background: "var(--bg-2)", display: "flex",
           alignItems: "center", padding: "0 12px", gap: 8,
         }}>
           <Icon name="search" size={15} stroke={1.5} style={{ color: "var(--muted)" }} />
-          <span style={{ color: "var(--muted)", font: "400 15px/1 var(--font-sans)" }}>{t("recents.search")}</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("recents.search")}
+            style={{
+              flex: 1, border: 0, outline: 0, background: "transparent",
+              color: "var(--ink)", font: "400 15px/1 var(--font-sans)",
+            }}
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              style={{
+                appearance: "none", border: 0, background: "transparent",
+                cursor: "pointer", color: "var(--muted-2)", padding: 0, display: "flex",
+              }}
+            >
+              <Icon name="close" size={12} stroke={1.8} />
+            </button>
+          )}
         </div>
       </div>
 

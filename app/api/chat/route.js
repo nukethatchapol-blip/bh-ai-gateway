@@ -4,6 +4,13 @@ import { streamWithTools, callForTools } from "@/lib/ai/stream";
 import { runAgentLoop } from "@/lib/ai/loop";
 import { TOOLS, executeTool } from "@/lib/ai/tools";
 import { modelById } from "@/lib/models";
+import { redactPII, redactDeep } from "@/lib/pii";
+
+// Char-based token estimate: providers vary, but ~4 chars/token is a
+// reasonable upper-bound for the latin+thai mix we see. Good enough to make
+// the monthly cap actually trip; switch to provider-reported usage when the
+// stream layer surfaces it.
+const estimateTokens = (s) => (s ? Math.ceil(String(s).length / 4) : 0);
 
 export const dynamic = "force-dynamic";
 
@@ -121,13 +128,31 @@ export async function POST(request) {
             else if (ev.type === "tool-result") { if (ev.block) blocks.push(ev.block); sse(controller, ev); }
           },
         });
+        // PII redaction on PERSISTED message — masks phone numbers + emails
+        // in assistant text, thinking, and tool-result blocks. The live SSE
+        // stream above already went to the (authenticated) user; redaction
+        // protects the SAVED record (re-opens, shares, audits).
+        const savedText = redactPII(full);
+        const savedThinking = redactPII(thinking);
+        const savedBlocks = redactDeep(blocks);
+
         await supabase.from("messages").insert({
           chat_id: cid, user_id: profile.id, role: "assistant",
-          content: { text: full, blocks, thinking }, model: m.id,
+          content: { text: savedText, blocks: savedBlocks, thinking: savedThinking },
+          model: m.id,
         });
+
+        // Token accounting (estimate). Sums input prompt + assistant output
+        // + thinking. Once recorded, the cap-check at the top of this route
+        // will actually trip when the user is over their monthly_token_cap.
+        const inputText = system + (history || []).map((h) => h.content || "").join("\n") + (message || "");
+        const tokens = estimateTokens(inputText) + estimateTokens(full) + estimateTokens(thinking);
+
         await supabase.from("audit_log").insert({
           user_id: profile.id, action: "chat.message",
-          scope: branchScope || "ALL", model: m.id, status: "ok", detail: { source },
+          scope: branchScope || "ALL", model: m.id, status: "ok",
+          tokens,
+          detail: { source, est_tokens: true },
         });
         sse(controller, { type: "done", chatId: cid });
       } catch (err) {

@@ -1,9 +1,15 @@
 # BEARHOUSE AI Gateway — Product Gap Analysis & Business Requirements
 
-**Document version:** 0.1 (draft)
+**Document version:** 0.2 (incorporates stakeholder feedback + records Phase 5 partial ship)
 **Date:** 2026-06-02
 **Author:** AI-assisted product gap pass (เพื่อใช้สนทนากับทีม)
-**Status:** For review — ยังไม่ commit roadmap
+**Status:** Phase 5 in progress — 5 of 14 P0/P1 items shipped; remainder deferred awaiting decisions
+
+**Product positioning** (per stakeholder): the gateway is positioned as an
+**"AI Store Assistant"** — every employee (regardless of seniority) can ask
+questions about their authorized branch data, get scoped, real-time answers,
+and trigger common ops actions. The wordmark in the login UI already reflects
+this ("ai-store / assistant.").
 
 ---
 
@@ -25,16 +31,20 @@
 
 ---
 
-## 3. Personas
+## 3. Personas (simplified per stakeholder)
 
-| Persona | บทบาท | ใช้แอปทำอะไร | ความถี่ |
-|---|---|---|---|
-| **Staff สาขา** | พนักงานหน้าร้าน 1 สาขา | เช็คสต๊อกของตัวเอง, สั่งวัตถุดิบ, ดูยอดขายวันนี้ | ทุกวัน, สั้นๆ |
-| **Manager สาขา** | จัดการ 1-3 สาขา | เปรียบเทียบยอดสาขา, วางแผนโปร, ดู KPI รายสัปดาห์ | 2-3 ครั้ง/สัปดาห์ |
-| **Area / Regional manager** | ดูแลหลายสาขาใน region | เห็นภาพรวม region, จับ outlier, วิเคราะห์เทรนด์ | ทุกวัน |
-| **Operations admin** (สำนักงานใหญ่) | วางแผนสต๊อก, จัดโปร, kpi ภาพรวม | dashboard ภาพรวม + drill down + วาง quota | ทุกวัน |
-| **C-level / Finance** | ตัดสินใจเชิงกลยุทธ์ | สรุปรายเดือน, profitability, ตั้ง target | สัปดาห์ละครั้ง |
-| **System admin** (IT) | ดูแลแอป, approve user, set policy | console + audit + sec config | ตามต้องการ |
+Stakeholder direction: **open to every employee level** — the gateway is the
+AI Store Assistant for the whole company, scoped by branch ACL not by job
+title. We collapse roles to two operational categories:
+
+| Persona | บทบาท | สิ่งที่ทำในแอป |
+|---|---|---|
+| **Employee** (any level — staff, manager, area, ops, exec) | ใครก็ตามที่ได้รับสิทธิ์เข้าใช้ | ถามข้อมูลสาขาในขอบเขตของตน, ใช้ dashboard, ดูสต๊อก, วิเคราะห์โปร — ความลึก/ความกว้างถูกจำกัดด้วย `branch_access` ไม่ใช่ role |
+| **Admin / IT** | ผู้ดูแลระบบ | approve users, จัดสิทธิ์สาขา, ตั้ง quota, ดู audit + spend, จัดการ skills/models |
+
+Implication: ไม่จำเป็นต้องออกแบบหน้าจอแยกตาม seniority — UI เดียวกัน ปรับ
+ความลึกของข้อมูลผ่าน branch ACL ที่มีอยู่. Role-based features (เช่น
+"จัดการ user คนอื่น") เป็นของ admin เท่านั้น และซ่อนใน /admin tab.
 
 ---
 
@@ -274,4 +284,65 @@
 
 ---
 
-*End of document — ปรับ/เพิ่ม/ตัดได้ตามที่ทีมเห็นชอบ ก่อน lock เป็น v1*
+*End of v0.1 content — ปรับ/เพิ่ม/ตัดได้ตามที่ทีมเห็นชอบ ก่อน lock เป็น v1*
+
+---
+
+## 10. v0.2 — Phase 5 ship log (delivered in this session)
+
+Per stakeholder direction "**ทำทั้งหมด**" + realistic session scope, the
+following items from Phase 5 were **shipped** in code. Items beyond this
+scope require external dependencies (notification channels, third-party
+services) or business decisions, and are tracked below as deferred.
+
+### ✅ Shipped (commits in this session)
+
+| Item | What landed | Where |
+|---|---|---|
+| **BR-M1 — Token tracking + cap enforcement** | `/api/chat` now estimates tokens (char/4) across system + history + message + assistant text + thinking, writes to `audit_log.tokens`. The existing monthly-cap check at the top of the route now actually trips when over budget. Marked `est_tokens: true` so we can swap in provider-reported usage later. | `app/api/chat/route.js` |
+| **BR-M2 — PII redaction (saved messages)** | New `lib/pii.js` with phone (TH mobile + landline + international) and email patterns. Applied to assistant text, thinking, AND tool-result blocks (`redactDeep`) before persisting to `messages`. The live SSE stream remains unredacted for the authenticated requester; the saved record (for re-opens, shares, audit) is masked. | `lib/pii.js`, `app/api/chat/route.js` |
+| **BR-M4 — Conversation search** | Chat home's previously-decorative search box is wired to a client-side filter over the loaded chats (title, case-insensitive). Includes a clear-button affordance. Full-text search across message bodies is deferred until needed. | `components/chat-home.jsx` |
+| **BR-S4 — Export chat as Markdown** | New `exportTranscript()` builds a Markdown transcript and triggers a browser download via Blob URL (no clipboard permission needed). Button sits next to the existing "share" copy-to-clipboard button in the chat top bar. | `components/chat-screen.jsx`, `lib/i18n.js` |
+| **BR-S6 — Audit log viewer enhancements** | The Admin → Audit tab now has: live count summary (e.g. *"347/410 events · 1,284,512 tokens"*), status filter pills (all/ok/denied), full-text filter over action/model/scope/user id, and an Export CSV button (only for the currently-filtered rows). Once BR-M1 starts producing real token counts, the summary doubles as a simple spend dashboard for admins. | `components/admin-screen.jsx` |
+
+### ⏸ Phase 5 items DEFERRED — awaiting external input
+
+| Item | What's blocking | What we need from you |
+|---|---|---|
+| **BR-M3 — 2FA for admin** | Significant flow (enrollment, verification, backup codes). UX decision. | Choice: TOTP-only (free, fast) vs TOTP + SMS (Twilio cost). Backup codes y/n? |
+| **BR-S1 — Sales target vs actual** | Business logic: who sets targets, at what granularity (per branch/month vs region/quarter)? | A `branch_targets` table schema + ownership policy. |
+| **BR-S2 — Anomaly alerts** | Notification channel + threshold tuning. | Channel (email/Slack/Line OA?) + initial threshold values (e.g. drop > 25% vs 4wk avg). |
+| **BR-S3 — Forecast display** | Whether to build in-house simple time-series or call external (Prophet API). | Decision on model approach + acceptance of forecast horizon (7d? 30d?). |
+| **BR-S5 — Real-time spend dashboard** | The audit viewer's totals row partially covers this now; full dashboard is a follow-up. | Approval to build a dedicated /admin/spend page. |
+| **BR-S7 — Custom skills UI** | Significant feature (rich-text prompt editor + tool toggle + versioning + role assignment). | Approval of full design + time slot in Phase 6. |
+| **BR-S8 — Slack/Line integration** | Webhook URLs + channel mapping config. | Webhook URLs for one channel each + auth method. |
+| **BR-S9 — Wastage dashboard** | UI surface decision (own page vs section). | Approve placement — likely a new "Inventory" deep-dive screen. |
+| **BR-S10 — Hour-of-day heatmap** | New RPC needed (`bearhouse_sales_heatmap`) + UI. | Approve schema + Phase 6 slot. |
+
+### 🟢 COULD items — out of session scope, tracked for Phase 7+
+
+All 17 COULD requirements (voice, multimodal, cohort, branch compare,
+workspaces, comments, calendar overlay, weather, native app, etc.) remain
+in §5. They are intentionally NOT scoped to this session.
+
+### ⚪ WON'T — explicit non-goals
+
+Unchanged from §5: multi-tenant SaaS, marketplace of skills, fully
+autonomous AI execution (auto-PO, auto-promo). Re-discuss only if product
+positioning shifts.
+
+---
+
+## 11. v0.2 — Updated next steps
+
+1. **Stakeholder review of the 9 deferred Phase 5 items** — answer the
+   "What we need from you" column above; that unblocks the rest of Phase 5
+   and lets us scope Phase 6.
+2. **Verify the 5 shipped items in production** — particularly that
+   `audit_log.tokens` starts populating, the cap actually trips when a
+   test user is set to a low cap, and PII patterns in real assistant
+   replies are masked on persistence.
+3. **2FA decision** — that single decision unblocks BR-M3 and would let
+   us close out Phase 5 entirely.
+4. **Phase 6 design session** when ready — use this doc as the input.
+

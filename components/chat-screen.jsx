@@ -31,14 +31,20 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
   const scopedBranch = branchScope === "ALL" ? null : branches.find((b) => b.id === branchScope);
   const composerRef = useRef(null);
 
-  async function shareTranscript() {
+  function buildTranscript() {
     const sections = messages.map((m) => {
       if (m.role === "user") return `## You\n\n${m.text || ""}`;
       if (m.role === "blocked") return `## System\n\n${m.text || ""}`;
       const body = m.text || (m.blocks || []).map((b) => b.text || "").filter(Boolean).join("\n");
       return `## ${skill?.name || "Assistant"}${m.model ? ` · ${m.model}` : ""}\n\n${body}`;
     });
-    const transcript = `# BEARHOUSE AI Gateway — conversation\n\n${sections.join("\n\n")}\n`;
+    const header = `# BEARHOUSE AI Gateway — conversation`;
+    const meta = `*Exported ${new Date().toISOString()}*`;
+    return `${header}\n\n${meta}\n\n${sections.join("\n\n")}\n`;
+  }
+
+  async function shareTranscript() {
+    const transcript = buildTranscript();
     try {
       await navigator.clipboard.writeText(transcript);
       setShareCopied(true);
@@ -46,6 +52,24 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
     } catch {
       /* clipboard unavailable (insecure context / permission) */
     }
+  }
+
+  // BR-S4 — download the conversation as a Markdown file. Works without
+  // clipboard permission and produces a record the user can attach to email,
+  // ticket systems, etc.
+  function exportTranscript() {
+    if (!messages.length) return;
+    const transcript = buildTranscript();
+    const blob = new Blob([transcript], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+    a.download = `chat-${stamp}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   async function send() {
@@ -189,6 +213,12 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
             borderColor: showThinking ? "transparent" : "var(--line)",
           }}>
           <Icon name="sparkles" size={14} style={{ color: showThinking ? "var(--accent-ink)" : "var(--muted)" }} />
+        </button>
+        <button type="button" onClick={exportTranscript} disabled={messages.length === 0}
+          title={t("chat.exportMd")}
+          aria-label={t("chat.exportMd")}
+          style={{ ...roundBtn(), opacity: messages.length === 0 ? 0.4 : 1 }}>
+          <Icon name="download" size={13} />
         </button>
         <button type="button" onClick={shareTranscript} disabled={messages.length === 0}
           title={t("chat.shareTooltip")}
