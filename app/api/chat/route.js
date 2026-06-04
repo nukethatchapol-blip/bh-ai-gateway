@@ -5,12 +5,18 @@ import { runAgentLoop } from "@/lib/ai/loop";
 import { TOOLS, executeTool } from "@/lib/ai/tools";
 import { modelById } from "@/lib/models";
 import { redactPII, redactDeep } from "@/lib/pii";
+import { rateLimit } from "@/lib/redis";
 
 // Char-based token estimate: providers vary, but ~4 chars/token is a
 // reasonable upper-bound for the latin+thai mix we see. Good enough to make
 // the monthly cap actually trip; switch to provider-reported usage when the
 // stream layer surfaces it.
 const estimateTokens = (s) => (s ? Math.ceil(String(s).length / 4) : 0);
+
+// Sliding-window rate limit: 30 messages per rolling minute per user.
+// Cheap protection against runaway cost / abuse. Fails open if Redis is down.
+const CHAT_RATE_MAX = 30;
+const CHAT_RATE_WINDOW = 60;
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +33,16 @@ export async function POST(request) {
     .from("profiles").select("id, role, status, full_name, monthly_token_cap").eq("id", user.id).single();
   if (!profile || profile.status !== "active") {
     return Response.json({ error: "account not active" }, { status: 403 });
+  }
+
+  // Per-user rate limit. Returns 429 with friendly retry-after when over.
+  const rl = await rateLimit(`chat:${profile.id}`, CHAT_RATE_MAX, CHAT_RATE_WINDOW);
+  if (!rl.allowed) {
+    const retryAfter = Math.max(1, rl.reset - Math.floor(Date.now() / 1000));
+    return Response.json(
+      { error: `Too many messages — wait ${retryAfter}s and try again.` },
+      { status: 429, headers: { "Retry-After": String(retryAfter) } }
+    );
   }
 
   // Spec error-handling: token cap checked before the loop. Sums tokens
