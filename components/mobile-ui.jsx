@@ -1,14 +1,21 @@
 "use client";
 import React from "react";
-import { Icon } from "./ui";
+import { Icon, LogoMark } from "./ui";
 
 export const SAFE_TOP = 8;
 
+// NavBar — defaults the leading slot to the peach-pill LogoMark so every
+// surface that didn't explicitly pass a leading (settings, chat home, admin,
+// apikeys) carries the brand mark introduced by the Activity/Analytics
+// redesign. Pass leading={null} to opt out (renders a 32px placeholder).
 export function NavBar({ title, sub, leading, trailing }) {
+  const leadingNode = leading === undefined
+    ? <LogoMark size={32} />
+    : (leading || <span style={{ width: 32 }} />);
   return (
     <div style={{ padding: "8px 20px", flexShrink: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 32 }}>
-        {leading || <span style={{ width: 32 }} />}
+        {leadingNode}
         {trailing || <span style={{ width: 32 }} />}
       </div>
       <div style={{ marginTop: 6 }}>
