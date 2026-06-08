@@ -5,7 +5,7 @@ import Link from "next/link";
 import { MODELS, modelById } from "@/lib/models";
 import { parseMarkdown } from "@/lib/markdown";
 import {
-  Avatar, BarMini, Field, Icon, Modal, Segmented, prettySize,
+  Avatar, BarMini, Field, Icon, LogoMark, Modal, Segmented, prettySize,
 } from "./ui";
 import { Sheet, roundBtn } from "./mobile-ui";
 import { useLang } from "./lang-context";
@@ -425,8 +425,10 @@ export function ChatScreen({ profile, skills, branches, authorizedIds, initialMe
 
             <div style={{ flex: 1 }} />
             <button onClick={send} type="button" style={{
-              width: 32, height: 32, borderRadius: 999, border: 0, cursor: "pointer",
-              background: "var(--ink)", color: "var(--bg)",
+              width: 36, height: 36, borderRadius: 12, border: 0, cursor: "pointer",
+              background: sendDisabled ? "var(--ink)" : "var(--peach-grad)",
+              color: "#fff",
+              boxShadow: sendDisabled ? "none" : "0 4px 10px -3px rgba(238,154,100,.55)",
               display: "flex", alignItems: "center", justifyContent: "center",
               opacity: sendDisabled ? 0.4 : 1,
             }}>
@@ -762,9 +764,13 @@ function Message({ m, skill, user, streaming = false, showThinking = false }) {
             </div>
           )}
           {m.text && (
+            // Soft user bubble — design moved away from the heavy dark bubble
+            // to a light peach-tinted card that sits gently right-aligned.
             <div style={{
-              padding: "10px 14px", background: "var(--ink)", color: "var(--bg)",
+              padding: "10px 14px",
+              background: "var(--peach-stack-1)", color: "var(--peach-deep-ink)",
               borderRadius: 14, borderBottomRightRadius: 4,
+              border: "0.5px solid var(--peach-stack-2)",
               font: "400 14.5px/1.55 var(--font-sans)", whiteSpace: "pre-wrap",
             }}>{m.text}</div>
           )}
@@ -801,12 +807,10 @@ function Message({ m, skill, user, streaming = false, showThinking = false }) {
     : blocks;
   return (
     <div style={{ display: "flex", gap: 12, padding: "14px 0" }}>
-      <div style={{
-        width: 28, height: 28, borderRadius: 999, flexShrink: 0,
-        background: "var(--accent-soft)", color: "var(--accent-ink)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
-        <Icon name="sparkles" size={14} />
+      {/* LogoMark replaces the generic sparkles-in-circle to match the
+          design's Nova AI brand mark on assistant messages. */}
+      <div style={{ flexShrink: 0, paddingTop: 1 }}>
+        <LogoMark size={28} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
