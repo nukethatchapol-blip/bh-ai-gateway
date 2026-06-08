@@ -267,6 +267,119 @@ export function RoleBadge({ role }) {
   return <span className="badge" style={{ background: m.bg, color: m.fg, borderColor: "transparent" }}>{role}</span>;
 }
 
+// ─────────────────────────────────────────────────────────────
+// New design primitives (Phase F) — used by Activity/Analytics
+// ─────────────────────────────────────────────────────────────
+
+// LogoMark — peach-gradient pill containing the BEARHOUSE bear inverted to
+// white. Replaces the cream-square BearLogo on surfaces that adopted the new
+// peach palette. Aspect ratio ~1.15:1 (a soft horizontal pill, not a square).
+export function LogoMark({ size = 40 }) {
+  return (
+    <span style={{
+      width: size * 1.15, height: size, borderRadius: size * 0.45, flexShrink: 0,
+      background: "var(--peach-grad)",
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      boxShadow: "0 4px 10px -3px rgba(238,154,100,.5)",
+    }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/bearhouse-bear.png"
+        alt=""
+        width={Math.round(size * 0.62)}
+        height={Math.round(size * 0.62)}
+        style={{ display: "block", filter: "brightness(0) invert(1)", opacity: 0.95 }}
+      />
+    </span>
+  );
+}
+
+// Ring — circular progress arc on a track. Value/total controls the arc,
+// `label` (defaults to value) sits in the centre with optional `sub` line.
+export function Ring({ value, total, size = 72, stroke = 7, color = "var(--accent)", label, sub }) {
+  const pct = Math.max(0, Math.min(1, value / Math.max(1, total)));
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * pct;
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none"
+          stroke="var(--ring-track, var(--line))" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color}
+          strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={`${dash} ${circ - dash}`} />
+      </svg>
+      <div style={{
+        position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+      }}>
+        <span style={{ font: "700 16px/1 var(--font-sans)", color: "var(--ink)" }}>
+          {label ?? value}
+        </span>
+        {sub && (
+          <span className="mono" style={{ font: "500 9px/1 var(--font-mono)", color: "var(--muted)", marginTop: 2 }}>
+            {sub}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// SegBar — segmented progress bar with multi-color cells. Each segment has a
+// `pct` weight (flex-grow) and a `color`. Reads as: orange = autoflow share,
+// green = resolved share, grey = manual/pending share, etc.
+export function SegBar({ segments = [], height = 6, gap = 3 }) {
+  return (
+    <div style={{ display: "flex", gap, height, alignItems: "stretch" }}>
+      {segments.map((s, i) => (
+        <div key={i} style={{
+          flexGrow: s.pct || 1, borderRadius: 3,
+          background: s.color || "var(--line)", minWidth: 3,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// DenseBars — dense vertical-bar chart with optional smooth line overlay
+// across the tops. Used on the Analytics screen's Performance Insights card.
+// Data array is values 0..1; if omitted, generates a deterministic preview.
+export function DenseBars({ data, w = 320, h = 120, hotFrom = 0.45, hotTo = 0.72 }) {
+  const bars = data || (() => {
+    // Deterministic LCG so SSR + CSR match without RNG.
+    const n = 54;
+    let s = 7;
+    return Array.from({ length: n }, () => {
+      s = (s * 9301 + 49297) % 233280;
+      return 0.25 + (s / 233280) * 0.7;
+    });
+  })();
+  const n = bars.length;
+  const line = bars.map((v, i) => [(i / Math.max(1, n - 1)) * w, h - v * h * 0.82 - 6]);
+  const linePath = line.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const bw = w / n;
+  return (
+    <svg width={w} height={h} style={{ display: "block", overflow: "visible", maxWidth: "100%" }}>
+      {bars.map((v, i) => {
+        const bh = v * h * 0.82;
+        const hot = i > n * hotFrom && i < n * hotTo;
+        return (
+          <rect key={i}
+            x={i * bw + bw * 0.2} y={h - bh - 4}
+            width={bw * 0.55} height={bh} rx={1}
+            fill={hot ? "var(--accent)" : "var(--muted-2)"}
+            opacity={hot ? 0.92 : 0.5}
+          />
+        );
+      })}
+      <path d={linePath} fill="none" stroke="var(--ink)" strokeWidth="1.25"
+        strokeLinejoin="round" opacity={0.65} />
+    </svg>
+  );
+}
+
 export function prettySize(n) {
   if (n < 1024) return `${n}B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)}KB`;

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Icon, Field } from "./ui";
+import { Icon, Field, LogoMark } from "./ui";
 import { useLang } from "./lang-context";
 
 export function LoginScreen({ branches = [] }) {
@@ -122,13 +122,14 @@ export function LoginScreen({ branches = [] }) {
               flex: 1, position: "relative", zIndex: 1, padding: "0 28px",
               display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             }}>
-              {/* bear — no frame, soft glow */}
+              {/* peach-pill LogoMark — replaces the framed medallion to match
+                  the new design's brand mark (also used in Activity top bar). */}
               <div style={{
-                width: 116, height: 116, marginBottom: 22,
+                marginBottom: 22, padding: "8px 0",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                background: "radial-gradient(circle, rgba(217,138,61,.16) 0%, transparent 68%)",
+                background: "radial-gradient(circle, rgba(238,154,100,.20) 0%, transparent 65%)",
               }}>
-                <img src="/bearhouse-bear.png" width={104} height={104} alt="" style={{ display: "block" }} />
+                <LogoMark size={72} />
               </div>
 
               <div className="mono" style={{

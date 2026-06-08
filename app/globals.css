@@ -34,6 +34,7 @@
   --peach-stack-1: #fbe4d0;    /* light stacked shadow #1 */
   --peach-stack-2: #f9d8bd;    /* light stacked shadow #2 */
   --green-ok: #3a9b76;         /* used by Strategy "opportunity" cards */
+  --ring-track: #f3ede0;       /* circular Ring component track (light) */
 }
 
 :root[data-theme="dark"] {
@@ -42,6 +43,7 @@
   --peach-b: #d98a52;
   --peach-stack-1: #241c14;
   --peach-stack-2: #2e2418;
+  --ring-track: #2a2018;
 }
 
 :root[data-theme="light"],
