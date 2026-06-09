@@ -217,8 +217,104 @@ export function ActivityScreen({
         </div>
       </div>
 
+      {/* === Workspace apps launcher (Phase O) === */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "20px 18px 12px",
+      }}>
+        <span style={{ font: "600 14px/1 var(--font-sans)", color: "var(--ink)" }}>
+          {t("activity.workspaceApps")}
+        </span>
+        <span style={{
+          marginLeft: "auto",
+          font: "500 11px/1 var(--font-sans)", color: "var(--accent-ink)",
+        }}>{t("activity.viewAll")}</span>
+      </div>
+      <div style={{
+        padding: "0 16px",
+        display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10,
+      }}>
+        {[
+          {
+            ic: "clock", label: t("apps.shift").split(/\s+/)[0],
+            sub: t("apps.shift").split(/\s+/).slice(1).join(" ") || "Management",
+            tint: "var(--accent)", soft: "var(--accent-soft)",
+            badge: "2 open",
+            href: process.env.NEXT_PUBLIC_APP_SHIFT_URL || "#",
+          },
+          {
+            ic: "ticket", label: "BD",
+            sub: "Ticket",
+            tint: "#3b82c4", soft: "rgba(59,130,196,.1)",
+            badge: "5",
+            href: process.env.NEXT_PUBLIC_APP_BDTICKET_URL || "#",
+          },
+          {
+            ic: "flag", label: t("apps.complain").split(/\s+/)[0],
+            sub: t("apps.complain").split(/\s+/).slice(1).join(" ") || "Case",
+            tint: "#d8593f", soft: "rgba(216,89,63,.1)",
+            badge: "1 new",
+            href: process.env.NEXT_PUBLIC_APP_COMPLAIN_URL || "#",
+          },
+        ].map((app) => (
+          <AppLauncherTile key={app.label} app={app} />
+        ))}
+      </div>
+
       <div style={{ height: 24 }} />
     </>
+  );
+}
+
+// One launcher tile — icon top-left, arrow-NE top-right, badge under arrow,
+// label + sub bottom. Renders as an <a> when href is non-empty so taps
+// actually navigate to the linked app.
+function AppLauncherTile({ app }) {
+  const linked = app.href && app.href !== "#";
+  const Inner = (
+    <>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <span style={{
+          width: 38, height: 38, borderRadius: 12, flexShrink: 0,
+          background: app.soft, color: app.tint,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Icon name={app.ic} size={18} stroke={1.7} />
+        </span>
+        <span aria-hidden style={{ display: "inline-flex", color: "var(--muted-2)", transform: "translateY(2px)" }}>
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+            strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 11L11 5" /><path d="M6 5h5v5" />
+          </svg>
+        </span>
+      </div>
+      <div>
+        <div style={{ font: "600 13px/1.2 var(--font-sans)", color: "var(--ink)" }}>{app.label}</div>
+        <div style={{ font: "400 11px/1.2 var(--font-sans)", color: "var(--muted)", marginTop: 2 }}>{app.sub}</div>
+      </div>
+      {app.badge && (
+        <span style={{
+          position: "absolute", top: 11, right: 34,
+          font: "600 9px/1 var(--font-mono)", color: app.tint,
+          background: app.soft, borderRadius: 999, padding: "3px 6px",
+        }}>{app.badge}</span>
+      )}
+    </>
+  );
+  const style = {
+    appearance: "none", cursor: linked ? "pointer" : "default", textAlign: "left",
+    textDecoration: "none",
+    background: "var(--panel)", border: "0.5px solid var(--line)", borderRadius: 16,
+    padding: "13px 12px", position: "relative",
+    boxShadow: "0 1px 2px rgba(0,0,0,.03)",
+    display: "flex", flexDirection: "column", gap: 10,
+    color: "inherit",
+    opacity: linked ? 1 : 0.95,
+  };
+  return linked ? (
+    <a href={app.href} target="_blank" rel="noopener noreferrer" style={style}>{Inner}</a>
+  ) : (
+    <button type="button" style={style}>{Inner}</button>
   );
 }
 

@@ -58,9 +58,21 @@ export default async function AssistantPage() {
     const negativeCount = movers.filter((m) => m.pct < -5).length;
     const neutralCount  = totalMovers - positiveCount - negativeCount;
 
+    // Hero — the single biggest mover (positive OR negative) becomes the
+    // exec summary's headline. Its current revenue is the metric.
+    const hero = topDeviations[0] ? {
+      branchRef:  topDeviations[0].branchRef,
+      branchName: topDeviations[0].branchName,
+      curRev:     Number(curByRef[topDeviations[0].branchRef]?.net_revenue || 0),
+      bills:      Number(curByRef[topDeviations[0].branchRef]?.bills || 0),
+      delta:      topDeviations[0].delta,
+      pct:        topDeviations[0].pct,
+      up:         topDeviations[0].pct >= 0,
+    } : null;
+
     return {
       profile, from, to,
-      topDeviations,
+      topDeviations, hero,
       ranges: {
         positive: (positiveCount / totalMovers) * 100,
         negative: (negativeCount / totalMovers) * 100,
@@ -76,6 +88,7 @@ export default async function AssistantPage() {
       to={data.to}
       topDeviations={data.topDeviations}
       ranges={data.ranges}
+      hero={data.hero}
     />
   );
 }
