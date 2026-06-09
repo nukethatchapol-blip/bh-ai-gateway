@@ -16,25 +16,33 @@ export default async function ActivityPage() {
   const supabase = await createClient();
   const user = await getCurrentUser();
 
-  const cacheKey = `activity:${user.id}:v2`; // bump version to bust old cache
+  const cacheKey = `activity:${user.id}:v3`; // bump for Phase R rewrite
   const data = await cached(cacheKey, 60, async () => {
     const today = new Date();
     const monthAgo = new Date(today.getTime() - 30 * 86400000);
     const from = monthAgo.toISOString().slice(0, 10);
     const to   = today.toISOString().slice(0, 10);
+    // Prior window of equal length — feeds the period sales delta on the
+    // "Today's sales" card (Phase R).
+    const fromMs = Date.parse(from), toMs = Date.parse(to);
+    const lenMs = Math.max(0, toMs - fromMs);
+    const prevTo   = new Date(fromMs - 86400000).toISOString().slice(0, 10);
+    const prevFrom = new Date(fromMs - 86400000 - lenMs).toISOString().slice(0, 10);
 
     const [
       { data: profile },
       { data: branches },
       { data: access },
       { data: kpis },
+      { data: kpisPrior },
       { data: invWatch },
       { count: events },
     ] = await Promise.all([
       supabase.from("profiles").select("id, full_name, email, role").eq("id", user.id).single(),
       supabase.from("branches").select("id, name, region"),
       supabase.from("branch_access").select("branch_id").eq("user_id", user.id),
-      supabase.rpc("bearhouse_branch_kpis", { p_from: from, p_to: to }),
+      supabase.rpc("bearhouse_branch_kpis", { p_from: from,     p_to: to }),
+      supabase.rpc("bearhouse_branch_kpis", { p_from: prevFrom, p_to: prevTo }),
       supabase.rpc("bearhouse_inventory_watch", { p_limit: 200 }),
       supabase.from("audit_log")
         .select("id", { count: "exact", head: true })
@@ -46,6 +54,7 @@ export default async function ActivityPage() {
       branches: branches || [],
       authorizedIds: (access || []).map((a) => a.branch_id),
       kpis: kpis || [],
+      kpisPrior: kpisPrior || [],
       invWatch: invWatch || [],
       events: events || 0,
     };
@@ -56,6 +65,13 @@ export default async function ActivityPage() {
   const salesSyncedPct = Math.min(100, (branchesWithSales / denom) * 100);
 
   const hoursSaved = Math.round((data.events * MINUTES_PER_EVENT) / 6) / 10;
+
+  // Period sales — sum revenue across all branches the user can see, then
+  // compute pct delta vs the prior window of equal length. Drives the new
+  // "Today's sales" stat card (Phase R).
+  const periodRev = (data.kpis || []).reduce((s, k) => s + Number(k.net_revenue || 0), 0);
+  const priorRev  = (data.kpisPrior || []).reduce((s, k) => s + Number(k.net_revenue || 0), 0);
+  const periodPct = priorRev > 0 ? ((periodRev - priorRev) / priorRev) * 100 : null;
 
   // Autoflow vs Manual: events count (autoflow) vs a 35% heuristic of manual
   // back-fill until we have a real manual-action source. The proportions
@@ -87,6 +103,8 @@ export default async function ActivityPage() {
       stockAlerts={stockAlerts}
       stockResolved={stockResolved}
       stockPending={stockPending}
+      periodRev={periodRev}
+      periodPct={periodPct}
     />
   );
 }

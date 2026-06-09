@@ -177,55 +177,28 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
         </div>
       )}
 
-      {/* "What changed this month" — AI-flavored insights from /api/insights/monthly */}
-      <StrategyPanel from={from} to={to} />
+      {/* === HERO Revenue — the one number that matters (Phase Q) === */}
+      <HeroRevenueCard
+        revenue={totals.sales}
+        delta={dRevenue}
+        prevRev={prev.rev}
+        sparkData={series.revenue}
+      />
 
-      {/* KPI cards grid */}
-      <div style={{ padding: "0 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        {kpiCards.map((k, i) => (
-          <Kpi key={i} label={k.label} value={k.value} delta={k.delta} deltaNeg={k.neg} sparkData={k.data} />
-        ))}
+      {/* === 3-stat strip — Customers / Avg ticket / Members === */}
+      <div style={{ padding: "0 16px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <StatChip label={t("dash.kpi.customers")} value={totals.customers.toLocaleString()} delta={dBills} />
+        <StatChip label={t("dash.kpi.avgticket")} value={`฿${totals.aov.toFixed(0)}`}        delta={dAov} />
+        <StatChip label={t("dash.kpi.members")}   value={`${totals.memberPct.toFixed(1)}%`}    delta={dMember} />
       </div>
 
-      {/* revenue chart card */}
-      <GroupCard style={{ margin: "12px 16px 0", padding: 16, borderRadius: 14 }}>
-        <RevenueChart range={rangeLabel} data={series.revenue} growth={pctDelta(cur.rev, prev.rev) ?? 0} branchCount={visible.length} />
-      </GroupCard>
+      {/* "What changed this month" — AI-flavored insights from /api/insights/monthly */}
+      <div style={{ marginTop: 14 }}>
+        <StrategyPanel from={from} to={to} />
+      </div>
 
-      {/* top branches */}
-      <SectionHeader>{t("dash.leaderboard")}</SectionHeader>
-      <GroupCard>
-        {topBranches.length === 0 && (
-          <div style={{ padding: "16px 14px", font: "400 13px/1.4 var(--font-sans)", color: "var(--muted)" }}>
-            {t("dash.leaderboard.sub", { n: 0 })}
-          </div>
-        )}
-        {topBranches.map((b, i) => (
-          <div key={b.id} style={{
-            display: "flex", alignItems: "center", padding: "12px 14px", gap: 4,
-            borderBottom: i < topBranches.length - 1 ? "0.5px solid var(--line-2)" : "none",
-          }}>
-            <span style={{ width: 24, font: "500 12px/1 var(--font-mono)", color: "var(--muted)" }}>{i + 1}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ font: "500 13.5px/1.2 var(--font-sans)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</div>
-              <div className="mono" style={{ font: "400 10.5px/1 var(--font-mono)", color: "var(--muted)", marginTop: 3 }}>
-                {b.id}{b.region ? ` · ${b.region}` : ""}
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div className="tnum" style={{ font: "600 13px/1 var(--font-mono)" }}>฿{(b.sales / 1000).toFixed(0)}K</div>
-              <div className="mono tnum" style={{
-                font: "500 11px/1 var(--font-mono)", marginTop: 4,
-                color: (b.growth === null || b.growth >= 0) ? "var(--accent-ink)" : "oklch(0.55 0.18 25)",
-              }}>
-                {b.growth === null
-                  ? t("dash.deltaNew")
-                  : `${b.growth >= 0 ? "+" : ""}${b.growth.toFixed(1)}%`}
-              </div>
-            </div>
-          </div>
-        ))}
-      </GroupCard>
+      {/* === Branch sales · ALL branches in scope (Phase Q) === */}
+      <BranchSalesCard branches={stats} t={t} />
 
       {/* === Top promotions === */}
       {promotions.length > 0 && (
@@ -325,6 +298,239 @@ export function DashboardScreen({ profile, branches, authorizedIds, kpis = [], k
         />
       )}
     </>
+  );
+}
+
+// === Phase Q components — simpler dashboard ===
+
+// One hero revenue card combining big number + delta chip + sparkline.
+// Replaces the old 4-tile KPI grid + separate RevenueChart card.
+function HeroRevenueCard({ revenue, delta, prevRev, sparkData }) {
+  const { t } = useLang();
+  const pts = sparkData?.length ? sparkData : [0, 0];
+  const max = Math.max(...pts, 1);
+  const xs = pts.map((v, i) => [(i / Math.max(1, pts.length - 1)) * 320, 88 - (v / max) * 78]);
+  const path = xs.map((p, i) => `${i ? "L" : "M"}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" ");
+  const last = xs[xs.length - 1];
+  const isUp = !delta.neg;
+  return (
+    <div style={{
+      margin: "0 16px 12px", padding: "18px 18px 8px", borderRadius: 20,
+      background: "var(--panel)", border: "0.5px solid var(--line)",
+      boxShadow: "0 4px 20px -12px rgba(0,0,0,.14)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ font: "500 12px/1 var(--font-sans)", color: "var(--muted)" }}>
+          {t("dash.revenue")} · {t("dash.preset.7d").toLowerCase()}
+        </span>
+        {/* 7d / 30d / QTD toggle — visual only, range comes from the bottom sheet */}
+        <div style={{ display: "flex", gap: 3, padding: 3, background: "var(--bg-2)", borderRadius: 9 }}>
+          {["7d", "30d", "QTD"].map((label, i) => (
+            <span key={label} style={{
+              padding: "5px 9px", borderRadius: 6,
+              font: `${i === 0 ? 600 : 500} 11px/1 var(--font-sans)`,
+              background: i === 0 ? "var(--panel)" : "transparent",
+              color:      i === 0 ? "var(--ink)"   : "var(--muted)",
+              boxShadow:  i === 0 ? "0 1px 2px rgba(0,0,0,.06)" : "none",
+            }}>{label}</span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "flex-end", gap: 10, margin: "12px 0 2px" }}>
+        <span className="tnum" style={{
+          font: "700 40px/0.9 var(--font-sans)", letterSpacing: "-0.03em", color: "var(--ink)",
+        }}>{formatHeroRev(revenue)}</span>
+        <span className="tnum" style={{
+          display: "inline-flex", alignItems: "center", gap: 4, height: 24, padding: "0 8px", marginBottom: 4,
+          borderRadius: 999, font: "700 13px/1 var(--font-sans)",
+          background: isUp ? "rgba(58,155,118,.13)" : "rgba(216,89,63,.12)",
+          color:      isUp ? "var(--green-ok)" : "#d8593f",
+        }}>
+          <span aria-hidden style={{ display: "inline-flex" }}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              {isUp
+                ? <><path d="M3 11l4-4 3 3 4-5" /><path d="M11 5h3v3" /></>
+                : <><path d="M3 5l4 4 3-3 4 5" /><path d="M11 11h3v-3" /></>}
+            </svg>
+          </span>
+          {delta.text}
+        </span>
+      </div>
+      <div style={{ font: "400 11.5px/1 var(--font-sans)", color: "var(--muted)" }}>
+        {prevRev > 0
+          ? `vs ฿${Math.round(prevRev / 1000).toLocaleString()}K prior period`
+          : t("dash.kpi.vsPrior")}
+      </div>
+
+      <svg viewBox="0 0 320 96" style={{ width: "100%", height: 110, marginTop: 10, overflow: "visible" }}>
+        <defs>
+          <linearGradient id="hero-rev-grad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <g style={{ color: "var(--accent)" }}>
+          <path d={`${path} L320,96 L0,96 Z`} fill="url(#hero-rev-grad)" />
+          <path d={path} fill="none" stroke="currentColor" strokeWidth="2.5"
+            strokeLinejoin="round" strokeLinecap="round" />
+          {last && (
+            <circle cx={last[0]} cy={last[1]} r="3.5"
+              fill="var(--panel)" stroke="currentColor" strokeWidth="2" />
+          )}
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+function formatHeroRev(n) {
+  if (!n) return "฿0";
+  if (n >= 1e6) return `฿${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e3) return `฿${Math.round(n / 1000)}K`;
+  return `฿${Math.round(n)}`;
+}
+
+// Compact stat chip — small label + big number + tiny delta. No sparkline.
+function StatChip({ label, value, delta }) {
+  const neg = delta?.neg;
+  return (
+    <div style={{
+      background: "var(--panel)", border: "0.5px solid var(--line)",
+      borderRadius: 14, padding: "13px 12px",
+    }}>
+      <div style={{ font: "500 10px/1.2 var(--font-sans)", color: "var(--muted)" }}>{label}</div>
+      <div className="tnum" style={{
+        font: "700 18px/1 var(--font-sans)", marginTop: 9,
+        letterSpacing: "-0.01em", color: "var(--ink)",
+      }}>{value}</div>
+      <div className="tnum" style={{
+        display: "inline-flex", alignItems: "center", gap: 3, marginTop: 8,
+        font: "600 10.5px/1 var(--font-mono)",
+        color: neg ? "#d8593f" : "var(--green-ok)",
+      }}>
+        <span aria-hidden style={{ display: "inline-flex" }}>
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+            strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            {neg ? <path d="M3 5l4 4 3-3 4 5" /> : <path d="M3 11l4-4 3 3 4-5" />}
+          </svg>
+        </span>
+        {delta?.text?.replace(/^[+-]/, "") || "—"}
+      </div>
+    </div>
+  );
+}
+
+// Branch sales summary — EVERY branch in scope, ranked by revenue, with
+// share-of-total progress bar + revenue + trend. Footer shows the total.
+function BranchSalesCard({ branches = [], t }) {
+  const filtered = branches.filter((b) => Number(b.sales) > 0);
+  const list = (filtered.length ? filtered : branches).slice().sort((a, b) => Number(b.sales) - Number(a.sales));
+  const total = list.reduce((sum, b) => sum + Number(b.sales || 0), 0);
+  const maxSales = Math.max(1, ...list.map((b) => Number(b.sales || 0)));
+
+  if (list.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{
+        padding: "16px 20px 10px",
+        display: "flex", alignItems: "baseline", gap: 8,
+      }}>
+        <span style={{ font: "600 14px/1 var(--font-sans)", color: "var(--ink)" }}>
+          {t("dash.branchSales")}
+        </span>
+        <span style={{ font: "500 11px/1 var(--font-sans)", color: "var(--muted)" }}>
+          {t("dash.branchSales.all", { n: list.length })}
+        </span>
+        <span style={{ flex: 1 }} />
+        <span className="tnum" style={{ font: "700 14px/1 var(--font-sans)", color: "var(--ink)" }}>
+          {formatHeroRev(total)}
+        </span>
+      </div>
+
+      <div style={{
+        margin: "0 16px",
+        background: "var(--panel)", border: "0.5px solid var(--line)",
+        borderRadius: 16, overflow: "hidden",
+      }}>
+        {list.map((b, i) => {
+          const share = total ? Math.round((Number(b.sales) / total) * 100) : 0;
+          const growthNum = b.growth;
+          const isUp = growthNum === null || growthNum >= 0;
+          return (
+            <div key={b.id} style={{
+              display: "flex", alignItems: "center", gap: 12, padding: "13px 14px",
+              borderBottom: i < list.length - 1 ? "0.5px solid var(--line-2)" : "none",
+            }}>
+              <span className="mono" style={{
+                width: 22, height: 22, borderRadius: 7, flexShrink: 0,
+                background: i === 0 ? "var(--accent)" : "var(--bg-2)",
+                color: i === 0 ? "#fff" : "var(--muted)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                font: "700 11px/1 var(--font-mono)",
+              }}>{i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
+                  <span style={{
+                    font: "600 13.5px/1.2 var(--font-sans)", color: "var(--ink)",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>{b.name}</span>
+                  <span className="mono" style={{
+                    font: "500 10px/1 var(--font-mono)", color: "var(--muted-2)",
+                  }}>{share}%</span>
+                </div>
+                {/* share-of-max bar */}
+                <div style={{
+                  height: 4, marginTop: 7, borderRadius: 2,
+                  background: "var(--bg-2)", overflow: "hidden",
+                }}>
+                  <div style={{
+                    width: `${(Number(b.sales) / maxSales) * 100}%`,
+                    height: "100%", borderRadius: 2,
+                    background: i === 0 ? "var(--accent)" : "var(--muted-2)",
+                  }} />
+                </div>
+              </div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}>
+                <div className="tnum" style={{
+                  font: "700 13px/1 var(--font-sans)", color: "var(--ink)",
+                }}>{formatHeroRev(Number(b.sales))}</div>
+                <div className="tnum" style={{
+                  display: "inline-flex", alignItems: "center", gap: 3, marginTop: 5,
+                  font: "600 10.5px/1 var(--font-mono)",
+                  color: isUp ? "var(--green-ok)" : "#d8593f",
+                }}>
+                  <span aria-hidden style={{ display: "inline-flex" }}>
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      {isUp ? <path d="M3 11l4-4 3 3 4-5" /> : <path d="M3 5l4 4 3-3 4 5" />}
+                    </svg>
+                  </span>
+                  {growthNum === null ? "new" : `${Math.abs(growthNum).toFixed(1)}%`}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+
+        {/* total footer */}
+        <div style={{
+          display: "flex", alignItems: "center", padding: "12px 14px",
+          background: "var(--bg-2)",
+          borderTop: "0.5px solid var(--line-2)",
+        }}>
+          <span style={{ width: 22, flexShrink: 0 }} />
+          <span style={{ flex: 1, font: "600 12.5px/1 var(--font-sans)", color: "var(--ink-2)" }}>
+            {t("dash.branchSales.total", { n: list.length })}
+          </span>
+          <span className="tnum" style={{ font: "700 14px/1 var(--font-sans)", color: "var(--ink)" }}>
+            {formatHeroRev(total)}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 

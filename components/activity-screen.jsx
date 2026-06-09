@@ -15,6 +15,7 @@ export function ActivityScreen({
   hoursSaved = 0, events = 0,
   salesSyncedPct = 0, branchesWithSales = 0, autoflowCount = 0, manualCount = 0,
   stockAlerts = 0, stockResolved = 0, stockPending = 0,
+  periodRev = 0, periodPct = null,
 }) {
   const { t } = useLang();
   const connected = authorizedIds.length;
@@ -126,96 +127,72 @@ export function ActivityScreen({
             {t("activity.heroLine.after")}
           </div>
 
-          {/* dots indicator (3 dots, 1 active) */}
-          <div style={{ display: "flex", gap: 5, marginBottom: 16 }}>
-            {[0, 1, 2].map((i) => (
-              <span key={i} style={{
-                width: i === 0 ? 18 : 6, height: 6, borderRadius: 999,
-                background: i === 0 ? "var(--peach-ink)" : "rgba(90,52,23,.3)",
-              }} />
-            ))}
-          </div>
-
-          {/* calendar + All Branches buttons */}
-          <div style={{ display: "flex", gap: 8 }}>
-            <Link href="/analytics" aria-label={t("nav.analytics")} style={{
-              width: 40, height: 40, borderRadius: 13, border: 0,
-              background: "rgba(255,255,255,.45)", color: "var(--peach-ink)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              textDecoration: "none",
-            }}>
-              <Icon name="dashboard" size={14} />
-            </Link>
-            <button type="button" style={{
-              flex: 1, height: 40, borderRadius: 13, border: 0, cursor: "pointer",
-              background: "rgba(255,255,255,.45)", color: "var(--peach-deep-ink)",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-              padding: "0 14px", font: "600 13.5px/1 var(--font-sans)",
-            }}>
-              {t("activity.allBranches")}
-              <Icon name="chevdown" size={13} />
-            </button>
-          </div>
+          {/* Single CTA — "View all branches" replaces dot carousel + calendar */}
+          <Link href="/dashboard" style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            width: "100%", height: 42, borderRadius: 13, padding: "0 16px",
+            background: "rgba(255,255,255,.55)", color: "var(--peach-deep-ink)",
+            font: "600 13.5px/1 var(--font-sans)", textDecoration: "none",
+          }}>
+            {t("activity.viewAllBranches")}
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 11L11 5" /><path d="M6 5h5v5" />
+            </svg>
+          </Link>
         </div>
       </div>
 
-      {/* === two stat cards with multi-color segmented bars === */}
-      <div style={{ padding: "0 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-        <StatCard
-          icon="check"
-          title={t("activity.salesSynced")}
-          value={`${salesSyncedPct.toFixed(2)}%`}
-          a={{ label: t("activity.autoflow"), v: fmtK(autoflowCount) }}
-          b={{ label: t("activity.manual"),   v: fmtK(manualCount)   }}
-          segments={syncSeg}
+      {/* === Two simple, concrete metric cards (Phase R) === */}
+      <div style={{ padding: "0 16px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+        <OverviewStat
+          icon="store"
+          tint="var(--accent)" soft="var(--accent-soft)"
+          label={t("activity.todaySales")}
+          value={fmtK(periodRev, "฿")}
+          delta={periodPct == null ? null : `${periodPct >= 0 ? "+" : ""}${periodPct.toFixed(1)}%`}
+          up={periodPct == null ? true : periodPct >= 0}
         />
-        <StatCard
+        <OverviewStat
           icon="bolt"
-          title={t("activity.stockAlerts")}
+          tint="#d8593f" soft="rgba(216,89,63,.1)"
+          label={t("activity.stockAlerts")}
           value={stockAlerts.toLocaleString()}
-          a={{ label: t("activity.resolved"), v: fmtK(stockResolved) }}
-          b={{ label: t("activity.pending"),  v: fmtK(stockPending)  }}
-          segments={stockSeg}
+          deltaText={stockAlerts > 0 ? t("activity.needRestock") : t("activity.allClear")}
         />
       </div>
 
-      {/* === Connected Branches: Total | icon grid | Mine === */}
-      <div style={{
+      {/* === My branches — single-row pill (Phase R) === */}
+      <Link href="/access" style={{
         margin: "0 16px",
         background: "var(--panel)", border: "0.5px solid var(--line)",
         borderRadius: 18, boxShadow: "0 1px 2px rgba(0,0,0,.03)",
+        display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
+        textDecoration: "none", color: "inherit",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 16px 10px" }}>
-          <Icon name="dashboard" size={13} style={{ color: "var(--muted)" }} />
-          <span style={{ font: "600 13.5px/1 var(--font-sans)", color: "var(--ink)" }}>
-            {t("activity.connected")}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 16px 16px" }}>
-          <ConnectedColumn n={total} label={t("activity.total")} />
-          <div style={{ flex: 1, display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
-            {[
-              { ic: "dashboard", filled: true   },
-              { ic: "store",     filled: false  },
-              { ic: "bolt",      filled: false  },
-              { ic: "sparkles",  filled: false  },
-              { ic: "store",     filled: false  },
-              { ic: "check",     filled: false  },
-            ].map((it, i) => (
-              <span key={i} style={{
-                width: 34, height: 34, borderRadius: 10,
-                background: it.filled ? "var(--ink)" : "var(--bg-2)",
-                color: it.filled ? "#fff" : "var(--ink-2)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: "0.5px solid var(--line)",
-              }}>
-                <Icon name={it.ic} size={14} />
-              </span>
-            ))}
+        <span style={{
+          width: 42, height: 42, borderRadius: 13, flexShrink: 0,
+          background: "var(--accent-soft)", color: "var(--accent-ink)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <Icon name="dashboard" size={19} stroke={1.6} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ font: "600 14px/1.2 var(--font-sans)", color: "var(--ink)" }}>
+            {t("activity.myBranches")}
           </div>
-          <ConnectedColumn n={mine} label={t("activity.mine")} />
+          <div style={{ font: "400 12px/1.3 var(--font-sans)", color: "var(--muted)", marginTop: 3 }}>
+            {t("activity.myBranches.sub", { n: connected })}
+          </div>
         </div>
-      </div>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div className="tnum" style={{ font: "700 18px/1 var(--font-sans)", color: "var(--ink)" }}>
+            {connected}
+            <span className="mono" style={{ font: "500 12px/1 var(--font-mono)", color: "var(--muted-2)" }}> / {total}</span>
+          </div>
+        </div>
+        <Icon name="chevright" size={15} stroke={1.7} style={{ color: "var(--muted-2)" }} />
+      </Link>
 
       {/* === Workspace apps launcher (Phase O) === */}
       <div style={{
@@ -318,6 +295,56 @@ function AppLauncherTile({ app }) {
   );
 }
 
+// One-number overview stat (Phase R) — icon + big value + label + tiny delta.
+// Replaces the old StatCard with its abstract multi-color segmented bar.
+function OverviewStat({ icon, tint, soft, label, value, delta, deltaText, up }) {
+  return (
+    <div style={{
+      background: "var(--panel)", border: "0.5px solid var(--line)",
+      borderRadius: 18, padding: 16,
+      boxShadow: "0 1px 2px rgba(0,0,0,.03)",
+    }}>
+      <span style={{
+        width: 32, height: 32, borderRadius: 10,
+        background: soft, color: tint,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <Icon name={icon} size={16} stroke={1.7} />
+      </span>
+      <div className="tnum" style={{
+        font: "700 26px/1 var(--font-sans)", letterSpacing: "-0.02em",
+        color: "var(--ink)", marginTop: 14,
+      }}>{value}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 9 }}>
+        <span style={{ font: "500 12px/1.2 var(--font-sans)", color: "var(--muted)" }}>{label}</span>
+        {delta && (
+          <span className="tnum" style={{
+            marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 3,
+            font: "600 11px/1 var(--font-mono)",
+            color: up ? "var(--green-ok)" : "#d8593f",
+          }}>
+            <span aria-hidden style={{ display: "inline-flex" }}>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                {up
+                  ? <path d="M3 11l4-4 3 3 4-5" />
+                  : <path d="M3 5l4 4 3-3 4 5" />}
+              </svg>
+            </span>
+            {delta.replace(/^[+-]/, "")}
+          </span>
+        )}
+        {deltaText && !delta && (
+          <span style={{
+            marginLeft: "auto",
+            font: "600 11px/1 var(--font-sans)", color: "#d8593f",
+          }}>{deltaText}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ConnectedColumn({ n, label }) {
   return (
     <div style={{ textAlign: "center", minWidth: 32 }}>
@@ -377,9 +404,9 @@ function iconBtn() {
   };
 }
 
-function fmtK(n) {
+function fmtK(n, prefix = "") {
   if (n == null) return "—";
-  if (n >= 10000) return `${(n / 1000).toFixed(1)}k`;
-  if (n >= 1000)  return `${(n / 1000).toFixed(1)}k`;
-  return String(Math.round(n));
+  if (n >= 1e6)   return `${prefix}${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1000)  return `${prefix}${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}K`;
+  return `${prefix}${Math.round(n)}`;
 }

@@ -10,11 +10,13 @@ export function TabBar({ role }) {
   const router = useRouter();
   const { t } = useLang();
   const tabs = [
-    { id: "chat", href: "/chat", icon: "chat", label: t("nav.chat") },
+    // Home tab — the main landing surface (Phase S). Points to /activity which
+    // hosts the Automation Impact hero + Workspace apps launcher.
+    { id: "home",     href: "/activity",  icon: "home",      label: t("nav.home") },
+    { id: "chat",     href: "/chat",      icon: "chat",      label: t("nav.chat") },
     { id: "dashboard", href: "/dashboard", icon: "dashboard", label: t("nav.dashboard") },
-    { id: "activity", href: "/activity", icon: "bolt", label: t("nav.activity") },
     ...(role === "admin" ? [{ id: "admin", href: "/admin", icon: "shield", label: t("nav.admin") }] : []),
-    { id: "settings", href: "/settings", icon: "cog", label: t("nav.settings") },
+    { id: "settings", href: "/settings",  icon: "cog",       label: t("nav.settings") },
   ];
 
   // Eagerly prefetch every visible tab route on mount so the first tap on
