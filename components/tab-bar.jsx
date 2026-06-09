@@ -1,11 +1,13 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Icon } from "./ui";
 import { useLang } from "./lang-context";
 
 export function TabBar({ role }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { t } = useLang();
   const tabs = [
     { id: "chat", href: "/chat", icon: "chat", label: t("nav.chat") },
@@ -14,17 +16,34 @@ export function TabBar({ role }) {
     ...(role === "admin" ? [{ id: "admin", href: "/admin", icon: "shield", label: t("nav.admin") }] : []),
     { id: "settings", href: "/settings", icon: "cog", label: t("nav.settings") },
   ];
+
+  // Eagerly prefetch every visible tab route on mount so the first tap on
+  // any tab is instant — Next.js Link prefetches on hover/viewport by default,
+  // but mobile users tap-without-hovering, so we trigger prefetch ourselves.
+  useEffect(() => {
+    for (const tab of tabs) router.prefetch(tab.href);
+  }, [router, role]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="m-tabbar">
       <div style={{ display: "flex", padding: "8px 8px 4px" }}>
         {tabs.map((tab) => {
           const active = pathname === tab.href || pathname?.startsWith(tab.href + "/");
           return (
-            <Link key={tab.id} href={tab.href} style={{
-              flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-              padding: "6px 0", textDecoration: "none",
-              color: active ? "var(--accent-ink)" : "var(--muted)",
-            }}>
+            <Link
+              key={tab.id}
+              href={tab.href}
+              prefetch={true}
+              // Re-prefetch the moment the finger lands — by the time the user
+              // releases the tap, the route's chunks + RSC payload are ready.
+              onTouchStart={() => router.prefetch(tab.href)}
+              onMouseDown={() => router.prefetch(tab.href)}
+              style={{
+                flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                padding: "6px 0", textDecoration: "none",
+                color: active ? "var(--accent-ink)" : "var(--muted)",
+              }}
+            >
               <Icon name={tab.icon} size={22} stroke={1.5} />
               <span style={{ font: `${active ? 600 : 500} 10.5px/1 var(--font-sans)` }}>{tab.label}</span>
             </Link>
