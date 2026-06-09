@@ -19,17 +19,20 @@ export default async function AssistantPage() {
   const from = monthAgo.toISOString().slice(0, 10);
   const to   = today.toISOString().slice(0, 10);
 
-  const cacheKey = `assistant:${user.id}:${from}:${to}:v3`;
+  const cacheKey = `assistant:${user.id}:${from}:${to}:v4`;
   const data = await cached(cacheKey, 300, async () => {
     const fromMs = Date.parse(from), toMs = Date.parse(to);
     const lenMs = Math.max(0, toMs - fromMs);
     const prevTo   = new Date(fromMs - 86400000).toISOString().slice(0, 10);
     const prevFrom = new Date(fromMs - 86400000 - lenMs).toISOString().slice(0, 10);
 
-    const [{ data: profile }, cur, prev] = await Promise.all([
+    const [{ data: profile }, cur, prev, { data: branches }] = await Promise.all([
       supabase.from("profiles").select("id, full_name, email").eq("id", user.id).single(),
       supabase.rpc("bearhouse_branch_kpis", { p_from: from,     p_to: to }),
       supabase.rpc("bearhouse_branch_kpis", { p_from: prevFrom, p_to: prevTo }),
+      // Fallback source — if KPI RPC has no rows, exec summary uses branch
+      // table directly to at least surface a hero name + driver list.
+      supabase.from("branches").select("id, name, region").order("name").limit(20),
     ]);
 
     const curByRef = {}; for (const r of cur.data || []) curByRef[r.branch_ref] = r;
@@ -69,25 +72,39 @@ export default async function AssistantPage() {
       pct:        topDeviations[0].pct,
       up:         topDeviations[0].pct >= 0,
     } : null;
-    // Fallback — if no prior-period data exists yet (new user, sparse data),
-    // pick the highest-revenue branch this period and synthesize a +0%
-    // delta so the exec summary still renders meaningfully.
+    // Fallback chain — KPI RPC → top revenue branch (curRev) → branches table.
     let extraDriversForFallback = [];
     if (!hero) {
-      const top = [...(cur.data || [])]
+      // First try: any branch in cur.data (even with zero revenue).
+      const topKpi = [...(cur.data || [])]
         .sort((a, b) => Number(b.net_revenue || 0) - Number(a.net_revenue || 0))
         .slice(0, 4);
-      if (top.length) {
+      if (topKpi.length) {
         hero = {
-          branchRef:  top[0].branch_ref,
-          branchName: top[0].branch_name || top[0].branch_ref,
-          curRev:     Number(top[0].net_revenue || 0),
-          bills:      Number(top[0].bills || 0),
+          branchRef:  topKpi[0].branch_ref,
+          branchName: topKpi[0].branch_name || topKpi[0].branch_ref,
+          curRev:     Number(topKpi[0].net_revenue || 0),
+          bills:      Number(topKpi[0].bills || 0),
           delta:      0, pct: 0, up: true,
         };
-        extraDriversForFallback = top.slice(1).map((r) => ({
+        extraDriversForFallback = topKpi.slice(1).map((r) => ({
           branchRef:  r.branch_ref,
           branchName: r.branch_name || r.branch_ref,
+          delta: 0, pct: 0,
+        }));
+      }
+      // Last resort — branches table (always populated). Lets the card render
+      // even when no transaction data has streamed in yet.
+      if (!hero && branches?.length) {
+        hero = {
+          branchRef:  branches[0].id,
+          branchName: branches[0].name || branches[0].id,
+          curRev: 0, bills: 0,
+          delta: 0, pct: 0, up: true,
+        };
+        extraDriversForFallback = branches.slice(1, 4).map((b) => ({
+          branchRef:  b.id,
+          branchName: b.name || b.id,
           delta: 0, pct: 0,
         }));
       }
