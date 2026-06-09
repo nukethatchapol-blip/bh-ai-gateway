@@ -26,8 +26,14 @@ export function AssistantScreen({ profile, from, to, topDeviations = [], ranges 
 
   return (
     <div style={{
-      height: "100%", display: "flex", flexDirection: "column",
-      background: "var(--bg-2)", overflow: "hidden",
+      // Make this screen fill the visible area inside MobileShell minus the
+      // tab bar height — without this the card collapses to its content
+      // height and leaves a white gap below.
+      minHeight: "calc(100dvh - var(--tabbar-h) - 16px)",
+      display: "flex", flexDirection: "column",
+      // Peach-stack-1 outer so the white card sits visually elevated, like
+      // the design's "card-on-tinted-tray" pattern.
+      background: "var(--peach-stack-1)",
     }}>
       {/* === top bar === */}
       <div style={{ padding: "8px 16px 10px", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -45,8 +51,9 @@ export function AssistantScreen({ profile, from, to, topDeviations = [], ranges 
         flex: 1, minHeight: 0, margin: "0 12px",
         background: "var(--panel)",
         borderTopLeftRadius: 22, borderTopRightRadius: 22,
-        border: "0.5px solid var(--line)", borderBottom: 0,
+        border: "0.5px solid var(--peach-stack-2)", borderBottom: 0,
         display: "flex", flexDirection: "column", overflow: "hidden",
+        boxShadow: "0 -2px 12px -4px rgba(238,154,100,.25)",
       }}>
         {/* card header */}
         <div style={{
