@@ -55,9 +55,9 @@ export function ActivityScreen({
         <button type="button" aria-label="Notifications" style={iconBtn()}>
           <Icon name="bell" size={14} />
         </button>
-        <button type="button" aria-label="Smart assistant" style={iconBtn()}>
+        <Link href="/assistant" aria-label={t("assistant.title")} style={iconBtn()}>
           <Icon name="sparkles" size={14} />
-        </button>
+        </Link>
         <Avatar name={profile?.full_name || profile?.email || "?"} size={36} />
       </div>
 
