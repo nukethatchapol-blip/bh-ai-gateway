@@ -19,7 +19,7 @@ export default async function AssistantPage() {
   const from = monthAgo.toISOString().slice(0, 10);
   const to   = today.toISOString().slice(0, 10);
 
-  const cacheKey = `assistant:${user.id}:${from}:${to}:v2`;
+  const cacheKey = `assistant:${user.id}:${from}:${to}:v3`;
   const data = await cached(cacheKey, 300, async () => {
     const fromMs = Date.parse(from), toMs = Date.parse(to);
     const lenMs = Math.max(0, toMs - fromMs);
