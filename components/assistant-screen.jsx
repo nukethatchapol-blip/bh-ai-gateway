@@ -238,12 +238,17 @@ function ExecAnswer({ hero, drivers = [], ranges = {}, t }) {
   const sub = `${hero.branchName} · ${hero.bills.toLocaleString()} ${t("dash.bills")}`;
   // Deterministic spark (small wave biased by direction)
   const spark = makeSpark(hero.up);
-  const bottomLine = hero.up
-    ? t("assistant.bottomLine.up", { name: hero.branchName, pct: Math.abs(hero.pct).toFixed(1) })
-    : t("assistant.bottomLine.down", { name: hero.branchName, pct: Math.abs(hero.pct).toFixed(1) });
-  const recommendation = hero.up
-    ? t("assistant.recommendation.up", { name: hero.branchName })
-    : t("assistant.recommendation.down", { name: hero.branchName });
+  const noDelta = !hero.pct || hero.pct === 0;
+  const bottomLine = noDelta
+    ? t("assistant.bottomLine.flat",  { name: hero.branchName })
+    : hero.up
+      ? t("assistant.bottomLine.up",   { name: hero.branchName, pct: Math.abs(hero.pct).toFixed(1) })
+      : t("assistant.bottomLine.down", { name: hero.branchName, pct: Math.abs(hero.pct).toFixed(1) });
+  const recommendation = noDelta
+    ? t("assistant.recommendation.flat", { name: hero.branchName })
+    : hero.up
+      ? t("assistant.recommendation.up",   { name: hero.branchName })
+      : t("assistant.recommendation.down", { name: hero.branchName });
 
   return (
     <div style={{
